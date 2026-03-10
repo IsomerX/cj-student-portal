@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type LoginPayload, type VerifyEmailOtpPayload } from "@/lib/auth/types";
 import { clearSession, getStoredToken, persistSession } from "@/lib/auth/storage";
 import { fetchProfile, login, logout, verifyEmailOtp } from "@/lib/api/auth";
-import { authQueryKeys } from "@/lib/query-keys";
+import { authQueryKeys, dashboardQueryKeys } from "@/lib/query-keys";
 
 export function useAuthProfileQuery() {
   const token = getStoredToken();
@@ -25,6 +25,7 @@ export function useLoginMutation() {
     mutationFn: (payload: LoginPayload) => login(payload),
     onSuccess: (session) => {
       persistSession(session);
+      queryClient.removeQueries({ queryKey: dashboardQueryKeys.all });
       if (session.user) {
         queryClient.setQueryData(authQueryKeys.profile(), session.user);
       }
@@ -39,6 +40,7 @@ export function useVerifyEmailOtpMutation() {
     mutationFn: (payload: VerifyEmailOtpPayload) => verifyEmailOtp(payload),
     onSuccess: (session) => {
       persistSession(session);
+      queryClient.removeQueries({ queryKey: dashboardQueryKeys.all });
       if (session.user) {
         queryClient.setQueryData(authQueryKeys.profile(), session.user);
       }
@@ -53,7 +55,7 @@ export function useLogoutMutation() {
     mutationFn: logout,
     onSettled: () => {
       clearSession();
-      queryClient.removeQueries({ queryKey: authQueryKeys.all });
+      queryClient.clear();
     },
   });
 }
