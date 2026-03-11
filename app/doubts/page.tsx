@@ -603,18 +603,17 @@ function CreateDoubtDrawer({
 
   return (
     <Drawer open={open} onOpenChange={handleOpenChange}>
-      <DrawerContent className="p-0">
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 pt-4 sm:px-6 sm:pb-6">
+      <DrawerContent className="p-0 max-h-[80vh] sm:max-h-[88vh]">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4 pt-3 sm:px-6 sm:pb-6">
           <DrawerHeader className="pr-8">
-            <DrawerTitle>Create new doubt</DrawerTitle>
+            <DrawerTitle>Ask a Doubt</DrawerTitle>
             <DrawerDescription>
-              Write the question clearly and the portal will check for similar solved doubts
-              before you submit.
+              Describe your question clearly and we&apos;ll check for similar solved doubts.
             </DrawerDescription>
           </DrawerHeader>
 
-          <form id="create-doubt-form" onSubmit={handleSubmit} className="mt-6 space-y-4">
-            <div className="space-y-2">
+          <form id="create-doubt-form" onSubmit={handleSubmit} className="mt-4 space-y-3">
+            <div className="space-y-1.5">
               <label className="text-sm font-semibold text-[#414141]">Subject</label>
               <CustomSelect
                 value={askSubjectId}
@@ -635,7 +634,7 @@ function CreateDoubtDrawer({
               ) : null}
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label className="text-sm font-semibold text-[#414141]">Title</label>
               <Input
                 value={title}
@@ -652,7 +651,7 @@ function CreateDoubtDrawer({
               ) : null}
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label className="text-sm font-semibold text-[#414141]">Description</label>
               <textarea
                 value={description}
@@ -663,7 +662,7 @@ function CreateDoubtDrawer({
                 placeholder="Describe your doubt in detail. Include what you tried and where you got stuck."
                 aria-invalid={Boolean(formErrors.description)}
                 className={cn(
-                  "min-h-[148px] w-full rounded-[18px] border border-gray-200 bg-white px-4 py-3 text-sm text-[#414141] shadow-sm outline-none transition-all placeholder:text-[#a3a3a3]",
+                  "min-h-[100px] w-full rounded-[18px] border border-gray-200 bg-white px-4 py-3 text-sm text-[#414141] shadow-sm outline-none transition-all placeholder:text-[#a3a3a3]",
                   "focus:border-[#283618] focus:ring-2 focus:ring-[#283618]/20",
                   "aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-500/20",
                 )}
@@ -673,16 +672,11 @@ function CreateDoubtDrawer({
               ) : null}
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
-                <div>
-                  <label className="text-sm font-semibold text-[#414141]">
-                    Images
-                  </label>
-                  <p className="mt-1 text-xs font-medium leading-5 text-[#737373]">
-                    Add up to 3 images, just like the mobile doubt flow.
-                  </p>
-                </div>
+                <label className="text-sm font-semibold text-[#414141]">
+                  Images <span className="font-normal text-[#737373]">(optional, up to 3)</span>
+                </label>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -704,47 +698,38 @@ function CreateDoubtDrawer({
               </div>
 
               {attachments.length > 0 ? (
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-2">
                   {attachments.map((attachment) => (
                     <div
                       key={attachment.id}
-                      className="relative overflow-hidden rounded-[18px] border border-[#ece5c8] bg-[#faf8ef]"
+                      className="relative overflow-hidden rounded-[14px] border border-[#ece5c8] bg-[#faf8ef]"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={attachment.previewUrl}
                         alt={attachment.file.name}
-                        className="h-28 w-full object-cover"
+                        className="h-20 w-full object-cover"
                       />
                       <button
                         type="button"
                         onClick={() => removeAttachment(attachment.id)}
-                        className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                        className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
                         aria-label={`Remove ${attachment.file.name}`}
                       >
-                        <X className="h-4 w-4" />
+                        <X className="h-3.5 w-3.5" />
                       </button>
-                      <div className="border-t border-[#ece5c8] px-3 py-2">
-                        <p className="truncate text-[11px] font-semibold text-[#414141]">
-                          {attachment.file.name}
-                        </p>
-                      </div>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="rounded-[18px] border border-dashed border-[#ece5c8] bg-[#faf8ef] px-4 py-4 text-sm font-medium text-[#737373]">
-                  No images attached yet.
-                </div>
-              )}
+              ) : null}
 
               {uploadProgress ? (
-                <div className="rounded-[18px] border border-[#ece5c8] bg-[#faf8ef] px-4 py-3">
-                  <div className="flex items-center gap-2 text-sm font-medium text-[#414141]">
-                    <Loader2 className="h-4 w-4 animate-spin text-[#283618]" />
-                    Uploading image {uploadProgress.current} of {uploadProgress.total}
+                <div className="rounded-[14px] border border-[#ece5c8] bg-[#faf8ef] px-3.5 py-2.5">
+                  <div className="flex items-center gap-2 text-xs font-medium text-[#414141]">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-[#283618]" />
+                    Uploading {uploadProgress.current}/{uploadProgress.total}
                   </div>
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#e6e1d2]">
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#e6e1d2]">
                     <div
                       className="h-full rounded-full bg-[#283618] transition-all"
                       style={{ width: `${uploadProgress.progress}%` }}
@@ -754,76 +739,50 @@ function CreateDoubtDrawer({
               ) : null}
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-[#414141]">Visibility</label>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => setIsPublic(true)}
-                  className={cn(
-                    "rounded-[18px] border px-4 py-3 text-left transition-all",
-                    isPublic
-                      ? "border-[#cadab2] bg-[#eef7e6] text-[#283618]"
-                      : "border-[#ece5c8] bg-[#faf8ef] text-[#737373]",
-                  )}
-                >
-                  <p className="text-sm font-bold">Visible in class feed</p>
-                  <p className="mt-1 text-xs font-medium leading-5">
-                    Let classmates learn from the same question.
-                  </p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsPublic(false)}
-                  className={cn(
-                    "rounded-[18px] border px-4 py-3 text-left transition-all",
-                    !isPublic
-                      ? "border-[#cadab2] bg-[#eef7e6] text-[#283618]"
-                      : "border-[#ece5c8] bg-[#faf8ef] text-[#737373]",
-                  )}
-                >
-                  <p className="text-sm font-bold">Keep it private</p>
-                  <p className="mt-1 text-xs font-medium leading-5">
-                    Only your teacher-side workflow will see it.
-                  </p>
-                </button>
+            <div className="flex items-center justify-between gap-3 rounded-[14px] border border-[#ece5c8] bg-[#faf8ef] px-3.5 py-2.5">
+              <div>
+                <p className="text-sm font-semibold text-[#414141]">Share in class feed</p>
+                <p className="text-xs text-[#737373]">Let classmates see this doubt</p>
               </div>
-            </div>
-
-            <div className="rounded-[20px] border border-[#ece5c8] bg-[#faf8ef] p-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-white text-[#283618] ring-1 ring-[#ece5c8]">
-                  <ShieldCheck className="h-4 w-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-[#212121]">Similar doubt check</p>
-                  <p className="mt-1 text-xs font-medium leading-5 text-[#737373]">
-                    As soon as your description has enough detail, matching answers will show up
-                    here.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-3">
-                {similarDoubtsQuery.isLoading ? (
-                  <p className="text-sm font-medium text-[#737373]">
-                    Checking similar doubts...
-                  </p>
-                ) : similarDoubtsQuery.data && similarDoubtsQuery.data.length > 0 ? (
-                  similarDoubtsQuery.data.slice(0, 3).map((doubt) => (
-                    <SimilarDoubtCard key={doubt.id} doubt={doubt} />
-                  ))
-                ) : deferredDescription.length >= 20 ? (
-                  <div className="rounded-[16px] border border-[#d9ead0] bg-[#f6fbf2] px-4 py-3 text-sm font-medium text-[#2d8c53]">
-                    No close match found. This looks ready to submit as a new doubt.
-                  </div>
-                ) : (
-                  <div className="rounded-[16px] border border-[#ece5c8] bg-white px-4 py-3 text-sm font-medium text-[#737373]">
-                    Start describing the problem to unlock suggestions.
-                  </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isPublic}
+                onClick={() => setIsPublic(!isPublic)}
+                className={cn(
+                  "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+                  isPublic ? "bg-[#283618]" : "bg-gray-200",
                 )}
-              </div>
+              >
+                <span
+                  className={cn(
+                    "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm ring-0 transition-transform",
+                    isPublic ? "translate-x-5" : "translate-x-0",
+                  )}
+                />
+              </button>
             </div>
+
+            {(similarDoubtsQuery.isLoading || (similarDoubtsQuery.data && similarDoubtsQuery.data.length > 0) || deferredDescription.length >= 20) ? (
+              <div className="rounded-[14px] border border-[#ece5c8] bg-[#faf8ef] px-3.5 py-3">
+                <p className="text-xs font-bold text-[#414141] mb-2">Similar doubts</p>
+                <div className="space-y-2">
+                  {similarDoubtsQuery.isLoading ? (
+                    <p className="text-xs font-medium text-[#737373]">
+                      Checking...
+                    </p>
+                  ) : similarDoubtsQuery.data && similarDoubtsQuery.data.length > 0 ? (
+                    similarDoubtsQuery.data.slice(0, 3).map((doubt) => (
+                      <SimilarDoubtCard key={doubt.id} doubt={doubt} />
+                    ))
+                  ) : (
+                    <p className="text-xs font-medium text-[#2d8c53]">
+                      No match found — ready to submit.
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : null}
 
             {formNotice ? (
               <div
@@ -999,105 +958,65 @@ function DoubtsPageContent() {
   return (
     <>
       <main className="min-h-[100dvh] bg-[#f0f2f5] pb-36 sm:pb-12">
-        <section className="rounded-b-[32px] bg-[#283618] px-3 pb-14 pt-5 shadow-lg sm:rounded-b-[40px] sm:px-6 sm:pb-16 sm:pt-6 lg:px-8">
-          <div className="mx-auto max-w-6xl">
+        <section className="relative rounded-b-[32px] bg-[#283618] px-3 pb-10 pt-5 shadow-lg sm:rounded-b-[40px] sm:px-6 sm:pb-12 sm:pt-6 lg:px-8 overflow-hidden">
+          <div className="absolute -left-10 top-0 h-48 w-48 rounded-full bg-white/5 blur-2xl" />
+          <div className="absolute right-0 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-[#cadab2]/10 blur-3xl lg:translate-x-1/4" />
+
+          <div className="relative mx-auto max-w-6xl">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-white text-[#283618] ring-2 ring-white/10 sm:h-12 sm:w-12 sm:rounded-[16px]">
+                <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-[14px] sm:rounded-[16px] bg-white text-[#283618] shadow-sm ring-2 ring-white/10">
                   <GraduationCap className="h-5 w-5 sm:h-6 sm:w-6" />
                 </div>
                 <div>
-                  <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/70 sm:text-[10px]">
+                  <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">
                     Student Portal
                   </p>
-                  <p className="text-lg font-extrabold tracking-tight text-white sm:text-xl lg:text-2xl">
+                  <p className="text-lg sm:text-xl font-extrabold tracking-tight text-white lg:text-2xl">
                     CJ Coaching
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Link
-                  href="/dashboard"
-                  className="inline-flex h-9 items-center gap-2 rounded-[12px] bg-white/10 px-3 text-xs font-bold text-white backdrop-blur-md transition-colors hover:bg-white/20 sm:text-sm"
-                >
-                  <Home className="h-4 w-4" />
-                  <span className="hidden sm:inline">Home</span>
-                </Link>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleLogout}
-                  disabled={logoutMutation.isPending}
-                  className="h-9 shrink-0 rounded-[12px] border-0 bg-white/10 px-3 text-white backdrop-blur-md hover:bg-white/20 hover:text-white focus:ring-2 focus:ring-white/50"
-                >
-                  <LogOut className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">
-                    {logoutMutation.isPending ? "Signing out..." : "Sign out"}
-                  </span>
-                </Button>
-              </div>
-            </div>
-
-            <div className="mt-8 flex flex-col gap-4 sm:mt-10 sm:flex-row sm:items-end sm:justify-between">
-              <div className="max-w-2xl">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#cadab2]">
-                  Doubt Portal
-                </p>
-                <h1 className="mt-2 text-[1.9rem] font-extrabold leading-tight tracking-tight text-white sm:text-[2.4rem]">
-                  Ask when you are stuck.
-                </h1>
-                <p className="mt-3 text-sm font-medium leading-relaxed text-white/80 sm:text-base">
-                  {studentName}, check the class feed or create a new doubt for {readableDate}.
-                </p>
-              </div>
-
               <Button
                 type="button"
-                className="hidden sm:inline-flex"
-                onClick={() => setIsCreateOpen(true)}
+                variant="outline"
+                size="sm"
+                onClick={handleLogout}
+                disabled={logoutMutation.isPending}
+                className="shrink-0 rounded-[12px] border-0 bg-white/10 px-3 h-9 text-white backdrop-blur-md hover:bg-white/20 hover:text-white focus:ring-2 focus:ring-white/50"
               >
-                Create new doubt
-                <Plus className="h-4 w-4" />
+                <LogOut className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">
+                  {logoutMutation.isPending ? "Signing out..." : "Sign out"}
+                </span>
               </Button>
+            </div>
+
+            <div className="mt-8 sm:mt-10 max-w-2xl space-y-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#cadab2]">
+                Doubt Portal
+              </p>
+              <h1 className="text-[1.75rem] sm:text-[2.25rem] font-extrabold leading-tight tracking-tight text-white lg:text-[2.75rem]">
+                Ask when you are stuck.
+              </h1>
+              <p className="text-sm sm:text-base font-medium leading-relaxed text-white/80">
+                {studentName}, check the class feed or create a new doubt for {readableDate}.
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsCreateOpen(true)}
+                className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-[#283618] shadow-sm transition-all hover:bg-white/90 hover:shadow-md active:scale-[0.97]"
+              >
+                <Plus className="h-4 w-4" />
+                Ask a Doubt
+              </button>
             </div>
           </div>
         </section>
 
-        <div className="mx-auto -mt-6 max-w-6xl px-3 sm:px-6 lg:px-8">
-          {hasAnyDoubts ? (
-            <div className="grid grid-cols-3 gap-2 sm:gap-3">
-              {statTiles.map((tile) => (
-                <StatTile key={tile.label} {...tile} />
-              ))}
-            </div>
-          ) : null}
-
-          <section className={cn("w-full", hasAnyDoubts ? "mt-6 sm:mt-8" : "mt-2")}>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between px-1">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#737373]">
-                  Browse
-                </p>
-                <h2 className="mt-1 text-2xl font-extrabold text-[#212121]">Doubt feed</h2>
-                <p className="mt-1 text-sm font-medium leading-relaxed text-[#737373]">
-                  Keep the main screen focused: browse doubts here and create a new one only when
-                  you need it.
-                </p>
-              </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                className="hidden sm:inline-flex"
-                onClick={() => setIsCreateOpen(true)}
-              >
-                Create new doubt
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-
+        <div className="relative z-10 mx-auto mt-4 sm:mt-6 max-w-6xl px-3 sm:px-6 lg:px-8">
+          <section className="w-full">
             {pageNotice ? (
               <div className="mt-4 rounded-[18px] border border-[#c5e6cf] bg-[#edf8f0] px-4 py-3 text-sm font-medium text-[#1f7a43]">
                 {pageNotice}
@@ -1107,7 +1026,7 @@ function DoubtsPageContent() {
             <Tabs
               value={activeTab}
               onValueChange={(value) => setActiveTab(value as PortalTab)}
-              className="mt-5"
+              className="mt-2"
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-[18px] bg-[#f3f4ee] p-1 sm:w-auto">
@@ -1195,48 +1114,7 @@ function DoubtsPageContent() {
           </section>
         </div>
 
-        <div className="fixed bottom-[76px] left-0 right-0 z-40 px-4 sm:hidden">
-          <Button type="button" className="w-full" onClick={() => setIsCreateOpen(true)}>
-            Create new doubt
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
 
-        <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-[#ece5c8] bg-white/90 px-2 pt-2 backdrop-blur-lg sm:hidden">
-          <Link
-            href="/dashboard"
-            className="flex flex-col items-center gap-1 p-2 text-[#737373] transition-colors hover:text-[#283618]"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-[#faf8ef]">
-              <Home className="h-5 w-5" />
-            </div>
-            <span className="text-[10px] font-medium">Home</span>
-          </Link>
-          <Link href="/doubts" className="flex flex-col items-center gap-1 p-2 text-[#283618]">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#eef7e6]">
-              <CircleHelp className="h-5 w-5" />
-            </div>
-            <span className="text-[10px] font-bold">Doubts</span>
-          </Link>
-          <Link
-            href="/ai"
-            className="flex flex-col items-center gap-1 p-2 text-[#737373] transition-colors hover:text-[#283618]"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-[#faf8ef]">
-              <Brain className="h-5 w-5" />
-            </div>
-            <span className="text-[10px] font-medium">Dost AI</span>
-          </Link>
-          <Link
-            href="/profile"
-            className="flex flex-col items-center gap-1 p-2 text-[#737373] transition-colors hover:text-[#283618]"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-[#faf8ef]">
-              <User className="h-5 w-5" />
-            </div>
-            <span className="text-[10px] font-medium">Profile</span>
-          </Link>
-        </nav>
       </main>
 
       <CreateDoubtDrawer

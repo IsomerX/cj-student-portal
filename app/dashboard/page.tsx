@@ -313,7 +313,7 @@ export default function DashboardPage() {
       </section>
 
       {/* Main Content Area */}
-      <div className="relative z-10 mx-auto max-w-6xl px-3 sm:px-6 lg:px-8">
+      <div className="relative z-10 mx-auto max-w-6xl px-5 sm:px-6 lg:px-8">
         {/* Stat Tiles (Overlapping, Solid, Condensed) */}
         <div className="-mt-16 sm:-mt-20 grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3">
           {statTiles.map((tile) => (
@@ -328,7 +328,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Quick Access Area */}
-        <section className="mt-4 sm:mt-6 lg:mt-8 rounded-[24px] border border-[#ece5c8] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+        <section className="mt-6 sm:mt-8 lg:mt-10">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#737373]">
               Student spaces
@@ -344,33 +344,6 @@ export default function DashboardPage() {
         </section>
       </div>
 
-      {/* Persistent Bottom Nav (Mobile Only) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-[#ece5c8] bg-white/90 px-2 pb-safe pt-2 backdrop-blur-lg sm:hidden">
-        <Link href="/dashboard" className="flex flex-col items-center gap-1 p-2 text-[#283618]">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#eef7e6]">
-            <Home className="h-5 w-5" />
-          </div>
-          <span className="text-[10px] font-bold">Home</span>
-        </Link>
-        <Link href="/ai" className="flex flex-col items-center gap-1 p-2 text-[#737373] transition-colors hover:text-[#283618]">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-[#faf8ef]">
-            <Brain className="h-5 w-5" />
-          </div>
-          <span className="text-[10px] font-medium">Dost AI</span>
-        </Link>
-        <Link href="/live" className="flex flex-col items-center gap-1 p-2 text-[#737373] transition-colors hover:text-[#283618]">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-[#faf8ef]">
-            <Video className="h-5 w-5" />
-          </div>
-          <span className="text-[10px] font-medium">Live</span>
-        </Link>
-        <Link href="/profile" className="flex flex-col items-center gap-1 p-2 text-[#737373] transition-colors hover:text-[#283618]">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-[#faf8ef]">
-            <User className="h-5 w-5" />
-          </div>
-          <span className="text-[10px] font-medium">Profile</span>
-        </Link>
-      </nav>
     </main>
   );
 }

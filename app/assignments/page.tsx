@@ -595,35 +595,31 @@ function AssignmentsPageContent() {
 
   return (
     <main className="min-h-[100dvh] bg-[#f0f2f5] pb-24 sm:pb-10">
-      <section className="rounded-b-[32px] bg-[#283618] px-3 pb-8 pt-4 shadow-sm sm:px-6 sm:pb-10 sm:pt-5 lg:px-8">
-        <div className="mx-auto max-w-6xl">
+      <section className="relative rounded-b-[32px] bg-[#283618] px-3 pb-14 pt-5 shadow-lg sm:rounded-b-[40px] sm:px-6 sm:pb-16 sm:pt-6 lg:px-8 overflow-hidden">
+        <div className="absolute -left-10 top-0 h-48 w-48 rounded-full bg-white/5 blur-2xl" />
+        <div className="absolute right-0 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-[#cadab2]/10 blur-3xl lg:translate-x-1/4" />
+
+        <div className="relative mx-auto max-w-6xl">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-white text-[#283618] ring-2 ring-white/10">
-                <GraduationCap className="h-5 w-5" />
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-[14px] sm:rounded-[16px] bg-white text-[#283618] shadow-sm ring-2 ring-white/10">
+                <GraduationCap className="h-5 w-5 sm:h-6 sm:w-6" />
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">
+                <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">
                   Student Portal
                 </p>
-                <p className="text-xl font-extrabold tracking-tight text-white">Assignments</p>
+                <p className="text-lg sm:text-xl font-extrabold tracking-tight text-white lg:text-2xl">Assignments</p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <Link
-                href="/dashboard"
-                className="inline-flex h-10 items-center gap-2 rounded-[12px] bg-white/10 px-3 text-sm font-bold text-white backdrop-blur-md transition-colors hover:bg-white/20"
-              >
-                <Home className="h-4 w-4" />
-                <span className="hidden sm:inline">Home</span>
-              </Link>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => void handleRefresh()}
-                className="h-10 rounded-[12px] border-0 bg-white/10 px-3 text-white backdrop-blur-md hover:bg-white/20 hover:text-white"
+                className="h-9 rounded-[12px] border-0 bg-white/10 px-3 text-white backdrop-blur-md hover:bg-white/20 hover:text-white"
               >
                 <RefreshCw className="h-4 w-4" />
                 <span className="hidden sm:inline">Refresh</span>
@@ -634,9 +630,9 @@ function AssignmentsPageContent() {
                 size="sm"
                 onClick={handleLogout}
                 disabled={logoutMutation.isPending}
-                className="h-10 rounded-[12px] border-0 bg-white/10 px-3 text-white backdrop-blur-md hover:bg-white/20 hover:text-white"
+                className="h-9 rounded-[12px] border-0 bg-white/10 px-3 text-white backdrop-blur-md hover:bg-white/20 hover:text-white focus:ring-2 focus:ring-white/50"
               >
-                <LogOut className="h-4 w-4" />
+                <LogOut className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">
                   {logoutMutation.isPending ? "Signing out..." : "Sign out"}
                 </span>
@@ -644,35 +640,22 @@ function AssignmentsPageContent() {
             </div>
           </div>
 
-          <div className="mt-7 max-w-3xl">
+          <div className="mt-8 sm:mt-10 max-w-2xl space-y-4">
             <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#cadab2]">
               {getReadableDate()}
             </p>
-            <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-white sm:text-4xl">
+            <h1 className="text-[1.75rem] sm:text-[2.25rem] font-extrabold leading-tight tracking-tight text-white lg:text-[2.75rem]">
               Track assignments and updates.
             </h1>
-            <p className="mt-3 hidden sm:block max-w-2xl text-sm font-medium leading-6 text-white/80 sm:text-base">
-              The web portal keeps the same assignment flow as the student app: pending work,
-              submitted work, study materials, and notices in one place.
+            <p className="text-sm sm:text-base font-medium leading-relaxed text-white/80">
+              Pending work, submitted work, study materials, and notices in one place.
             </p>
           </div>
         </div>
       </section>
 
-      <div className="mx-auto -mt-4 sm:-mt-5 max-w-6xl px-3 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
-          {stats.map((item) => (
-            <StatTile
-              key={item.label}
-              icon={item.icon}
-              label={item.label}
-              value={item.value}
-              helper={item.helper}
-            />
-          ))}
-        </div>
-
-        <section className="mt-8 rounded-[24px] border border-[#ece5c8] bg-white p-4 shadow-sm sm:p-5">
+      <div className="relative z-10 mx-auto -mt-6 sm:-mt-8 max-w-6xl px-3 sm:px-6 lg:px-8">
+        <section className="rounded-[24px] border border-[#ece5c8] bg-white p-4 shadow-sm sm:p-5">
           <Tabs value={activeTab} onValueChange={(value) => updateSearch(value as PortalTab)}>
             <TabsList className="grid h-12 w-full grid-cols-3 rounded-[16px] bg-white/60 p-1.5 shadow-sm ring-1 ring-[#ece5c8]">
               <TabsTrigger
@@ -831,44 +814,6 @@ function AssignmentsPageContent() {
         </section>
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-[#ece5c8] bg-white/90 px-2 pt-2 backdrop-blur-lg sm:hidden">
-        <Link
-          href="/dashboard"
-          className="flex min-w-[64px] flex-col items-center gap-1 rounded-full px-3 py-2 text-[#737373]"
-        >
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-transparent">
-            <Home className="h-5 w-5" />
-          </div>
-          <span className="text-[10px] font-medium">Home</span>
-        </Link>
-        <Link
-          href="/assignments"
-          className="flex min-w-[64px] flex-col items-center gap-1 rounded-full px-3 py-2 text-[#283618]"
-        >
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#eef7e6]">
-            <ClipboardList className="h-5 w-5" />
-          </div>
-          <span className="text-[10px] font-bold">Assignments</span>
-        </Link>
-        <Link
-          href="/doubts"
-          className="flex min-w-[64px] flex-col items-center gap-1 rounded-full px-3 py-2 text-[#737373]"
-        >
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-transparent">
-            <Bell className="h-5 w-5" />
-          </div>
-          <span className="text-[10px] font-medium">Doubts</span>
-        </Link>
-        <button
-          type="button"
-          className="flex min-w-[64px] flex-col items-center gap-1 rounded-full px-3 py-2 text-[#737373]"
-        >
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-transparent">
-            <User className="h-5 w-5" />
-          </div>
-          <span className="text-[10px] font-medium">Profile</span>
-        </button>
-      </nav>
     </main>
   );
 }

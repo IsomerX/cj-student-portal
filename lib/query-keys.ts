@@ -21,3 +21,10 @@ export const doubtQueryKeys = {
     [...doubtQueryKeys.all, "subjects", classSectionId ?? "all"] as const,
   similar: (text: string) => [...doubtQueryKeys.all, "similar", text] as const,
 };
+
+export const liveClassQueryKeys = {
+  all: ["live-classes"] as const,
+  list: () => [...liveClassQueryKeys.all, "list"] as const,
+  token: (classId: string) => [...liveClassQueryKeys.all, "token", classId] as const,
+  recordings: () => [...liveClassQueryKeys.all, "recordings"] as const,
+};

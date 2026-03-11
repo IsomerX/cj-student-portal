@@ -1052,41 +1052,6 @@ export default function DoubtDetailPage() {
           </div>
         ) : null}
 
-        <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-[#ece5c8] bg-white/90 px-2 pt-2 backdrop-blur-lg sm:hidden">
-          <Link
-            href="/dashboard"
-            className="flex flex-col items-center gap-1 p-2 text-[#737373] transition-colors hover:text-[#283618]"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-[#faf8ef]">
-              <Home className="h-5 w-5" />
-            </div>
-            <span className="text-[10px] font-medium">Home</span>
-          </Link>
-          <Link href="/doubts" className="flex flex-col items-center gap-1 p-2 text-[#283618]">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#eef7e6]">
-              <CircleHelp className="h-5 w-5" />
-            </div>
-            <span className="text-[10px] font-bold">Doubts</span>
-          </Link>
-          <Link
-            href="/ai"
-            className="flex flex-col items-center gap-1 p-2 text-[#737373] transition-colors hover:text-[#283618]"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-[#faf8ef]">
-              <Brain className="h-5 w-5" />
-            </div>
-            <span className="text-[10px] font-medium">Dost AI</span>
-          </Link>
-          <Link
-            href="/profile"
-            className="flex flex-col items-center gap-1 p-2 text-[#737373] transition-colors hover:text-[#283618]"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-[#faf8ef]">
-              <User className="h-5 w-5" />
-            </div>
-            <span className="text-[10px] font-medium">Profile</span>
-          </Link>
-        </nav>
       </main>
 
       <Dialog open={Boolean(selectedImage)} onOpenChange={(open) => !open && setSelectedImage(null)}>
