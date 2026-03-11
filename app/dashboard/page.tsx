@@ -4,17 +4,13 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  AlertTriangle,
-  Bell,
   Brain,
-  CalendarDays,
   ChevronRight,
   CircleHelp,
   Clock3,
   FileText,
   GraduationCap,
   LogOut,
-  MapPin,
   RefreshCw,
   ShieldCheck,
   Sparkles,
@@ -29,7 +25,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuthProfileQuery, useLogoutMutation } from "@/hooks/use-auth";
 import { useStudentDashboardQuery } from "@/hooks/use-student-dashboard";
-import type { DashboardScheduleStatus, StudentDashboardPeriod } from "@/lib/api/student-dashboard";
+
 import { clearSession, getStoredToken } from "@/lib/auth/storage";
 import { cn } from "@/lib/utils";
 
@@ -71,27 +67,6 @@ const moduleShortcuts: ModuleShortcut[] = [
   },
 ];
 
-const scheduleStatusStyles: Record<
-  DashboardScheduleStatus,
-  {
-    label: string;
-    className: string;
-  }
-> = {
-  completed: {
-    label: "Done",
-    className: "border-transparent bg-[#f3f4ee] text-[#737373]",
-  },
-  ongoing: {
-    label: "Now",
-    className: "border-[#cadab2] bg-[#eef7e6] text-[#283618]",
-  },
-  upcoming: {
-    label: "Next",
-    className: "border-[#ecd7a6] bg-[#fff6df] text-[#8d6c0d]",
-  },
-};
-
 function getFirstName(name?: string | null) {
   if (!name) return "Student";
 
@@ -113,29 +88,6 @@ function getReadableDate(timestamp?: string) {
     month: "long",
     day: "numeric",
   }).format(new Date(timestamp ?? Date.now()));
-}
-
-function getEventDateLabel(date: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-  }).format(new Date(date));
-}
-
-
-function ScheduleStatusBadge({ status }: { status: DashboardScheduleStatus }) {
-  const style = scheduleStatusStyles[status];
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]",
-        style.className,
-      )}
-    >
-      {style.label}
-    </span>
-  );
 }
 
 function DashboardLoadingState() {
@@ -215,64 +167,7 @@ function ModuleCard({
   return content;
 }
 
-function ScheduleList({ schedule }: { schedule: StudentDashboardPeriod[] }) {
-  if (schedule.length === 0) {
-    return (
-      <div className="rounded-[20px] border border-dashed border-[#ece5c8] bg-[#faf8ef] p-5 text-sm font-medium text-[#737373] text-center">
-        No classes are scheduled for today.
-      </div>
-    );
-  }
 
-  return (
-    <div className="rounded-[20px] border border-[#ece5c8] bg-white px-4 sm:px-5 shadow-sm">
-      {schedule.map((period, index) => (
-        <div
-          key={period.id}
-          className={cn(
-            "group flex gap-3 py-4 transition-all duration-300",
-            index !== schedule.length - 1 ? "border-b border-[#ece5c8]/60" : "",
-          )}
-        >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border border-[#ece5c8] bg-[#faf8ef] text-sm font-bold text-[#283618] transition-colors duration-300 group-hover:bg-[#eef7e6] group-hover:border-[#cadab2]">
-            {period.periodNumber}
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-[#212121] transition-colors duration-300 group-hover:text-[#283618]">{period.subject}</p>
-                <p className="mt-0.5 text-xs font-medium leading-5 text-[#737373]">
-                  <span className="text-[#414141]">{period.time}</span> · {period.teacher}
-                </p>
-              </div>
-
-              <ScheduleStatusBadge status={period.status} />
-            </div>
-
-            {period.room || period.isSubstitution ? (
-              <div className="mt-2.5 flex flex-wrap gap-2">
-                {period.room ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#faf8ef] border border-[#ece5c8] px-2.5 py-1 text-[10px] font-semibold text-[#414141] uppercase tracking-wider">
-                    <MapPin className="h-3 w-3 text-[#283618]" />
-                    {period.room}
-                  </span>
-                ) : null}
-
-                {period.isSubstitution ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#fff5f3] border border-[#f2d5d1] px-2.5 py-1 text-[10px] font-semibold text-[#bf4d42] uppercase tracking-wider">
-                    <AlertTriangle className="h-2.5 w-2.5" />
-                    Teacher update
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -329,26 +224,6 @@ export default function DashboardPage() {
         helper: classDisplay ? `Class ${classDisplay}` : "Your day plan is ready.",
         icon: Clock3,
       },
-      {
-        label: "Schedule alerts",
-        value: String(dashboard.alerts.count),
-        helper:
-          dashboard.alerts.count > 0
-            ? "Check class updates before you join."
-            : "No changes announced for today.",
-        icon: Bell,
-      },
-      {
-        label: "Upcoming events",
-        value: String(dashboard.upcomingEvents.length),
-        helper:
-          dashboard.upcomingEvents.length > 0
-            ? `${dashboard.upcomingEvents[0]?.title || "Next event"} on ${getEventDateLabel(
-              dashboard.upcomingEvents[0]?.date || dashboard.today.date,
-            )}`
-            : "Nothing scheduled over the next week.",
-        icon: CalendarDays,
-      },
     ]
     : [
       {
@@ -370,11 +245,6 @@ export default function DashboardPage() {
         icon: RefreshCw,
       },
     ];
-
-  const currentPeriod = dashboard?.nextUp.current ?? null;
-  const nextPeriod = dashboard?.nextUp.next ?? null;
-  const schedule = dashboard?.schedule ?? [];
-  const alerts = dashboard?.alerts.items ?? [];
 
   return (
     <main className="min-h-[100dvh] bg-[#f0f2f5] pb-24 sm:pb-12">
@@ -457,205 +327,21 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        <div className="mt-4 sm:mt-6 grid gap-4 sm:gap-6 lg:mt-8 lg:grid-cols-[1.1fr_0.9fr]">
-          {/* Main Focus Area */}
-          <section className="rounded-[24px] border border-[#ece5c8] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#737373]">
-                  Day focus
-                </p>
-                <h2 className="mt-1 text-xl font-extrabold text-[#212121]">Next up</h2>
-              </div>
-
-              {dashboardError ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => dashboardQuery.refetch()}
-                  className="rounded-full shadow-sm h-8 px-3 text-xs"
-                >
-                  <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                  Retry
-                </Button>
-              ) : null}
-            </div>
-
-            {dashboard ? (
-              <div className="mt-4 space-y-3">
-                <div className="rounded-[20px] border border-[#ece5c8] bg-[#faf8ef] p-4 shadow-inner">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#737373]">
-                    {currentPeriod ? "In progress" : nextPeriod ? "Coming up" : "Today"}
-                  </p>
-                  <h3 className="mt-2 text-xl font-bold leading-tight text-[#283618] sm:text-2xl">
-                    {currentPeriod?.subject ?? nextPeriod?.subject ?? "No classes right now"}
-                  </h3>
-                  <p className="mt-2 text-xs font-medium leading-relaxed text-[#737373] sm:text-sm">
-                    {dashboard.nextUp.message}
-                  </p>
-
-                  {currentPeriod ?? nextPeriod ? (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <div className="rounded-[10px] bg-white px-2.5 py-1 text-xs font-bold text-[#414141] shadow-sm ring-1 ring-[#ece5c8]">
-                        {(currentPeriod ?? nextPeriod)?.time ?? "Schedule"}
-                      </div>
-                      {(currentPeriod ?? nextPeriod)?.teacher ? (
-                        <div className="rounded-[10px] bg-white px-2.5 py-1 text-xs font-bold text-[#414141] shadow-sm ring-1 ring-[#ece5c8]">
-                          {(currentPeriod ?? nextPeriod)?.teacher}
-                        </div>
-                      ) : null}
-                      {(currentPeriod ?? nextPeriod)?.room ? (
-                        <div className="rounded-[10px] flex items-center gap-1.5 bg-[#eef7e6] text-[#283618] px-2.5 py-1 text-xs font-bold shadow-sm ring-1 ring-[#cadab2]">
-                          <MapPin className="h-3 w-3" />
-                          Room {(currentPeriod ?? nextPeriod)?.room}
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-
-                  {currentPeriod && nextPeriod ? (
-                    <div className="mt-4 rounded-[12px] border border-[#ece5c8]/60 bg-white p-3 text-xs font-medium text-[#737373] shadow-sm">
-                      <span className="font-bold text-[#414141]">After this:</span> <span className="text-[#212121]">{nextPeriod.subject}</span> at{" "}
-                      {nextPeriod.time}.
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="rounded-[20px] border border-[#ece5c8] bg-white p-4 shadow-sm">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[#f4f7f1] text-[#283618] ring-1 ring-[#cadab2]/50">
-                      <ShieldCheck className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-[#212121]">
-                        {alerts.length > 0 ? "Important schedule updates" : "You're ready to begin"}
-                      </p>
-                      <p className="mt-1 text-xs font-medium leading-relaxed text-[#737373]">
-                        {alerts.length > 0
-                          ? alerts[0]?.message
-                          : "No schedule changes are showing right now. Use the quick access cards below."}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-4 rounded-[20px] border border-dashed border-[#ece5c8] bg-[#faf8ef] p-5">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[#fff5f3] text-[#bf4d42] ring-1 ring-[#f2d5d1]">
-                    <AlertTriangle className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-[#212121]">Dashboard data is unavailable</p>
-                    <p className="mt-1 text-xs font-medium leading-relaxed text-[#737373]">
-                      {dashboardError ||
-                        "We could not load today's student summary right now. Try refreshing the home view."}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* Quick Access Area */}
-          <section className="rounded-[24px] border border-[#ece5c8] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#737373]">
-                Student spaces
-              </p>
-              <h2 className="mt-1 text-xl font-extrabold text-[#212121]">Quick access</h2>
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4">
-              {moduleShortcuts.map((module) => (
-                <ModuleCard key={module.title} {...module} />
-              ))}
-            </div>
-          </section>
-        </div>
-
-        <div className="mt-4 sm:mt-6 grid gap-4 sm:gap-6 lg:mt-8 xl:grid-cols-[1.2fr_0.8fr]">
-          <section className="rounded-[24px] border border-[#ece5c8] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#737373]">
-                  Today
-                </p>
-                <h2 className="mt-1 text-xl font-extrabold text-[#212121]">Class schedule</h2>
-              </div>
-              {dashboard?.today.dayOfWeek ? (
-                <div className="rounded-[10px] bg-[#faf8ef] px-3 py-1 text-xs font-bold text-[#414141] shadow-sm ring-1 ring-[#ece5c8]">
-                  {dashboard.today.dayOfWeek}
-                </div>
-              ) : null}
-            </div>
-
-            <div className="mt-4">
-              {dashboard ? (
-                <ScheduleList schedule={schedule} />
-              ) : (
-                <div className="rounded-[20px] border border-dashed border-[#ece5c8] bg-[#faf8ef] p-5 text-sm font-medium text-[#737373] text-center">
-                  Schedule details will appear here once the student home data is available.
-                </div>
-              )}
-            </div>
-          </section>
-
-          <div className="space-y-4 sm:space-y-6 lg:space-y-8">
-            <section className="rounded-[24px] border border-[#ece5c8] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#737373]">
-                Updates
-              </p>
-              <h2 className="mt-1 text-xl font-extrabold text-[#212121]">Alerts</h2>
-
-              {dashboard ? (
-                alerts.length > 0 ? (
-                  <div className="mt-4 space-y-3">
-                    {alerts.slice(0, 3).map((alert) => (
-                      <article
-                        key={alert.id}
-                        className="group rounded-[20px] border border-[#f2d5d1] bg-[#fff5f3] p-4 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-white text-[#bf4d42] shadow-sm">
-                            <Bell className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-bold text-[#212121]">{alert.subject || "Update"}</p>
-                            <p className="mt-1 text-xs font-medium leading-relaxed text-[#737373]">{alert.message}</p>
-                            <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#bf4d42]/70">
-                              {alert.time}
-                            </p>
-                          </div>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="mt-4 rounded-[20px] border border-[#ece5c8] bg-[#faf8ef] p-4 shadow-sm">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[#f4f7f1] text-[#283618] ring-1 ring-[#cadab2]/50">
-                        <ShieldCheck className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-[#212121]">All clear</p>
-                        <p className="mt-1 text-xs font-medium leading-relaxed text-[#737373]">
-                          There are no classroom alerts or substitution updates at the moment.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )
-              ) : (
-                <div className="mt-4 rounded-[20px] border border-dashed border-[#ece5c8] bg-[#faf8ef] p-4 text-xs font-medium text-[#737373] text-center">
-                  Alerts will appear here after the dashboard summary loads.
-                </div>
-              )}
-            </section>
-
+        {/* Quick Access Area */}
+        <section className="mt-4 sm:mt-6 lg:mt-8 rounded-[24px] border border-[#ece5c8] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#737373]">
+              Student spaces
+            </p>
+            <h2 className="mt-1 text-xl font-extrabold text-[#212121]">Quick access</h2>
           </div>
-        </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4">
+            {moduleShortcuts.map((module) => (
+              <ModuleCard key={module.title} {...module} />
+            ))}
+          </div>
+        </section>
       </div>
 
       {/* Persistent Bottom Nav (Mobile Only) */}
