@@ -37,11 +37,20 @@ const modulePills = [
 
 type FieldErrors = Partial<Record<"email" | "password", string>>;
 
+function detectMobileBrowser() {
+  if (typeof window === "undefined") return false;
+
+  return /android|iphone|ipad|ipod|mobile/i.test(window.navigator.userAgent);
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const loginMutation = useLoginMutation();
   const verifyOtpMutation = useVerifyEmailOtpMutation();
-  const recaptcha = useRecaptcha(process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY);
+  const [isMobileBrowser, setIsMobileBrowser] = React.useState<boolean | null>(null);
+  const recaptcha = useRecaptcha(
+    isMobileBrowser === false ? process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY : undefined,
+  );
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -52,6 +61,10 @@ export default function LoginPage() {
   const [isOtpDialogOpen, setIsOtpDialogOpen] = React.useState(false);
 
   React.useEffect(() => {
+    setIsMobileBrowser(detectMobileBrowser());
+  }, []);
+
+  React.useEffect(() => {
     if (getStoredToken()) {
       router.replace("/dashboard");
     }
@@ -59,6 +72,7 @@ export default function LoginPage() {
 
   const resendOtpMutation = useMutation({
     mutationFn: async () => {
+      const appPlatform = (isMobileBrowser ?? detectMobileBrowser()) ? "mobile" : undefined;
       const recaptchaToken = recaptcha.isEnabled ? recaptcha.getToken() : undefined;
 
       if (recaptcha.isEnabled && !recaptcha.isReady) {
@@ -70,7 +84,7 @@ export default function LoginPage() {
       }
 
       try {
-        return await loginRequest({ email, password, recaptchaToken });
+        return await loginRequest({ email, password, recaptchaToken, appPlatform });
       } catch (error) {
         const authError = toAuthApiError(error);
         if (authError.status === 403 && authError.code === "EMAIL_VERIFICATION_REQUIRED") {
@@ -115,6 +129,7 @@ export default function LoginPage() {
       return;
     }
 
+    const appPlatform = (isMobileBrowser ?? detectMobileBrowser()) ? "mobile" : undefined;
     const recaptchaToken = recaptcha.isEnabled ? recaptcha.getToken() : undefined;
 
     if (recaptcha.isEnabled && !recaptcha.isReady) {
@@ -132,6 +147,7 @@ export default function LoginPage() {
         email: parsed.data.email,
         password: parsed.data.password,
         recaptchaToken,
+        appPlatform,
       });
 
       router.push("/dashboard");

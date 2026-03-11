@@ -27,6 +27,7 @@ export interface LoginPayload {
   email: string;
   password: string;
   recaptchaToken?: string;
+  appPlatform?: "mobile";
 }
 
 export interface VerifyEmailOtpPayload {

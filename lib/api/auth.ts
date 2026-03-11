@@ -75,7 +75,10 @@ async function fetchProfileWithHeaders(headers?: Record<string, string>) {
 
 export async function login(payload: LoginPayload): Promise<AuthSession> {
   try {
-    const response = await apiClient.post<AuthResponseBody>("/auth/login", payload);
+    const { appPlatform, ...requestBody } = payload;
+    const response = await apiClient.post<AuthResponseBody>("/auth/login", requestBody, {
+      headers: appPlatform ? { "X-App-Platform": appPlatform } : undefined,
+    });
     const token = getTokenFromBody(response.data);
 
     if (!token) {
