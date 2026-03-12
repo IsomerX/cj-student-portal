@@ -756,7 +756,7 @@ export default function LiveSessionClient() {
                 style={liveSessionViewportStyle}
             >
                 <div
-                    className="absolute left-0 right-0 flex items-center gap-4 px-4 pb-4 sm:px-6 sm:pb-6"
+                    className="absolute left-0 right-0 top-0 flex items-center gap-4 px-4 pb-4 sm:px-6 sm:pb-6"
                     style={{ paddingTop: "max(1rem, calc(env(safe-area-inset-top) + 0.5rem))" }}
                 >
                     <button
@@ -765,7 +765,7 @@ export default function LiveSessionClient() {
                     >
                         <ArrowLeft className="h-5 w-5" />
                     </button>
-                    <span className="font-bold text-[#414141]">{title}</span>
+                    <span className="min-w-0 truncate font-bold text-[#414141]">{title}</span>
                 </div>
 
                 <div className="flex flex-col items-center max-w-sm text-center">
