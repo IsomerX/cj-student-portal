@@ -253,7 +253,10 @@ export default function LiveSessionClient() {
     // Landscape / fullscreen controls
     const [isLandscape, setIsLandscape] = useState(false);
     const [showControls, setShowControls] = useState(false);
+    const [viewportHeight, setViewportHeight] = useState<number | null>(null);
     const controlsTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const viewportSyncFrameRef = useRef<number | null>(null);
+    const viewportSyncTimeoutsRef = useRef<number[]>([]);
 
     const hasJoinedRef = useRef(false);
     const reactionCooldownUntilRef = useRef(0);
@@ -401,6 +404,64 @@ export default function LiveSessionClient() {
             });
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        const root = document.documentElement;
+        const body = document.body;
+        const previousRootOverflow = root.style.overflow;
+        const previousBodyOverflow = body.style.overflow;
+        const previousBodyOverscroll = body.style.overscrollBehavior;
+
+        root.style.overflow = "hidden";
+        body.style.overflow = "hidden";
+        body.style.overscrollBehavior = "none";
+
+        const syncViewportHeight = () => {
+            if (viewportSyncFrameRef.current !== null) {
+                window.cancelAnimationFrame(viewportSyncFrameRef.current);
+            }
+
+            viewportSyncFrameRef.current = window.requestAnimationFrame(() => {
+                const nextHeight = Math.round(window.visualViewport?.height ?? window.innerHeight);
+                setViewportHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+                window.scrollTo(0, 0);
+            });
+        };
+
+        const scheduleViewportSettling = () => {
+            syncViewportHeight();
+            viewportSyncTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+            viewportSyncTimeoutsRef.current = [
+                window.setTimeout(syncViewportHeight, 80),
+                window.setTimeout(syncViewportHeight, 240),
+            ];
+        };
+
+        scheduleViewportSettling();
+
+        window.addEventListener("resize", syncViewportHeight);
+        window.addEventListener("orientationchange", scheduleViewportSettling);
+        window.visualViewport?.addEventListener("resize", scheduleViewportSettling);
+        window.visualViewport?.addEventListener("scroll", syncViewportHeight);
+
+        return () => {
+            window.removeEventListener("resize", syncViewportHeight);
+            window.removeEventListener("orientationchange", scheduleViewportSettling);
+            window.visualViewport?.removeEventListener("resize", scheduleViewportSettling);
+            window.visualViewport?.removeEventListener("scroll", syncViewportHeight);
+
+            if (viewportSyncFrameRef.current !== null) {
+                window.cancelAnimationFrame(viewportSyncFrameRef.current);
+            }
+
+            viewportSyncTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+            viewportSyncTimeoutsRef.current = [];
+
+            root.style.overflow = previousRootOverflow;
+            body.style.overflow = previousBodyOverflow;
+            body.style.overscrollBehavior = previousBodyOverscroll;
+        };
     }, []);
 
     // ─── Landscape detection ──────────────────────────────────────────────
@@ -682,11 +743,18 @@ export default function LiveSessionClient() {
         }
     }, [enableMicrophone]);
 
+    const liveSessionViewportStyle = viewportHeight
+        ? { height: `${viewportHeight}px` }
+        : undefined;
+
     // ─── Pre-connection states ───────────────────────────────────────────────
 
     if (connectionState !== "connected") {
         return (
-            <main className="flex min-h-[100svh] flex-col items-center justify-center bg-[#fffbe7] p-5">
+            <main
+                className="flex min-h-screen w-full max-w-full flex-col items-center justify-center overflow-hidden bg-[#fffbe7] p-5"
+                style={liveSessionViewportStyle}
+            >
                 <div className="absolute top-0 left-0 w-full p-4 sm:p-6 flex items-center gap-4">
                     <button
                         onClick={() => router.push("/live")}
@@ -799,7 +867,10 @@ export default function LiveSessionClient() {
 
     if (isLandscape && connectionState === "connected") {
         return (
-            <div className="fixed inset-0 bg-black z-[100]">
+            <div
+                className="relative z-[100] w-full max-w-full overflow-hidden bg-black"
+                style={liveSessionViewportStyle}
+            >
                 {/* Fullscreen video — tap to toggle controls */}
                 <div className="absolute inset-0" onClick={handleStageTap}>
                     <div className="w-full h-full">
@@ -982,7 +1053,10 @@ export default function LiveSessionClient() {
     // ─── Portrait layout (unchanged) ──────────────────────────────────────
 
     return (
-        <div className="flex flex-col h-[100svh] bg-[#fffbe7] overflow-hidden">
+        <div
+            className="flex w-full max-w-full flex-col overflow-hidden bg-[#fffbe7]"
+            style={liveSessionViewportStyle}
+        >
             {/* Header */}
             <div className="flex items-center gap-3 px-4 py-3 shrink-0">
                 <button
