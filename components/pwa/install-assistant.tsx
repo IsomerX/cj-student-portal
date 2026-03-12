@@ -198,7 +198,10 @@ export default function InstallAssistant() {
 
   return (
     <>
-      <div className="fixed inset-x-3 bottom-24 z-[70] sm:bottom-6 sm:left-auto sm:right-6 sm:max-w-sm">
+      <div
+        className="fixed inset-x-3 z-[70] sm:bottom-6 sm:left-auto sm:right-6 sm:max-w-sm"
+        style={{ bottom: "max(6rem, calc(env(safe-area-inset-bottom) + 4rem))" }}
+      >
         <div className="rounded-[24px] border border-[#ece5c8] bg-white/95 p-4 shadow-xl backdrop-blur-xl">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">

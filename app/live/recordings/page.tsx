@@ -54,7 +54,10 @@ export default function RecordingsPage() {
     return (
         <main className="min-h-[100dvh] bg-[#f0f2f5] pb-12">
             {/* Header */}
-            <section className="bg-white px-3 py-4 shadow-sm sm:px-6 lg:px-8 border-b border-[#ece5c8]">
+            <section
+                className="border-b border-[#ece5c8] bg-white px-3 py-4 shadow-sm sm:px-6 lg:px-8"
+                style={{ paddingTop: "max(1rem, calc(env(safe-area-inset-top) + 0.25rem))" }}
+            >
                 <div className="mx-auto max-w-4xl flex items-center gap-4">
                     <Link
                         href="/live"

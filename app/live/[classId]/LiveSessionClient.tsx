@@ -755,7 +755,10 @@ export default function LiveSessionClient() {
                 className="flex min-h-screen w-full max-w-full flex-col items-center justify-center overflow-hidden bg-[#fffbe7] p-5"
                 style={liveSessionViewportStyle}
             >
-                <div className="absolute top-0 left-0 w-full p-4 sm:p-6 flex items-center gap-4">
+                <div
+                    className="absolute left-0 right-0 flex items-center gap-4 px-4 pb-4 sm:px-6 sm:pb-6"
+                    style={{ paddingTop: "max(1rem, calc(env(safe-area-inset-top) + 0.5rem))" }}
+                >
                     <button
                         onClick={() => router.push("/live")}
                         className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#414141] shadow-sm ring-1 ring-[#e5e7eb] transition-colors hover:bg-[#f9fafb]"
@@ -1058,7 +1061,10 @@ export default function LiveSessionClient() {
             style={liveSessionViewportStyle}
         >
             {/* Header */}
-            <div className="flex items-center gap-3 px-4 py-3 shrink-0">
+            <div
+                className="flex shrink-0 items-center gap-3 px-4 pb-3"
+                style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+            >
                 <button
                     onClick={handleLeave}
                     className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#414141] shadow-sm ring-1 ring-[#e5e7eb] hover:bg-[#f9fafb] transition-colors"
