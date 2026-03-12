@@ -9,7 +9,6 @@ import {
     useVideo,
     selectPeers,
     selectLocalPeer,
-    selectIsConnectedToRoom,
     selectIsLocalAudioEnabled,
     selectRoomState,
     selectIsPeerAudioEnabled,
@@ -32,7 +31,9 @@ import {
     Send,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useLiveClassTokenQuery, useJoinLiveClassMutation } from "@/hooks/use-live-classes";
+import { toast } from "sonner";
+import { joinLiveClass } from "@/lib/api/live-classes";
+import { useLiveClassTokenQuery } from "@/hooks/use-live-classes";
 import { liveClassQueryKeys } from "@/lib/query-keys";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -216,7 +217,6 @@ export default function LiveSessionClient() {
     const hmsActions = useHMSActions();
     const peers = useHMSStore(selectPeers);
     const localPeer = useHMSStore(selectLocalPeer);
-    const isConnected = useHMSStore(selectIsConnectedToRoom);
     const isAudioEnabled = useHMSStore(selectIsLocalAudioEnabled);
     const roomState = useHMSStore(selectRoomState);
     const notification = useHMSNotifications();
@@ -237,7 +237,6 @@ export default function LiveSessionClient() {
     const controlsTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     const hasJoinedRef = useRef(false);
-    const joinMutation = useJoinLiveClassMutation();
 
     // Token polling — disabled once connected, removed, disconnected, or errored
     const shouldPollToken = !!params?.classId &&
@@ -247,7 +246,7 @@ export default function LiveSessionClient() {
         connectionState !== "disconnected" &&
         connectionState !== "error";
 
-    const { data: tokenData, error, isError, isFetching } = useLiveClassTokenQuery(
+    const { data: tokenData, error, isError, isFetching, refetch: refetchToken } = useLiveClassTokenQuery(
         params?.classId,
         shouldPollToken
     );
@@ -257,8 +256,11 @@ export default function LiveSessionClient() {
     const canPublishAudio = currentRole === "viewer-on-stage" || currentRole === "co-broadcaster" || currentRole === "broadcaster";
 
     // Find broadcaster/teacher peer
-    const broadcasterPeer = peers.find((p) => !p.isLocal && p.videoTrack) ||
-        peers.find((p) => p.roleName === "broadcaster") ||
+    const broadcasterPeer =
+        peers.find((p) => !p.isLocal && p.roleName === "broadcaster") ||
+        peers.find((p) => !p.isLocal && p.roleName === "co-broadcaster") ||
+        peers.find((p) => !p.isLocal && p.roleName === "viewer-on-stage") ||
+        peers.find((p) => !p.isLocal && p.videoTrack) ||
         peers.find((p) => !p.isLocal);
 
     // Screen share detection
@@ -275,35 +277,50 @@ export default function LiveSessionClient() {
     // ─── Token polling → join flow ──────────────────────────────────────────
 
     useEffect(() => {
-        if (isFetching || connectionState === "joining" || connectionState === "connecting" || connectionState === "connected" || connectionState === "removed" || connectionState === "disconnected" || connectionState === "error") return;
+        if (
+            isFetching ||
+            hasJoinedRef.current ||
+            connectionState === "joining" ||
+            connectionState === "connecting" ||
+            connectionState === "connected" ||
+            connectionState === "removed" ||
+            connectionState === "disconnected" ||
+            connectionState === "error"
+        ) {
+            return;
+        }
 
         if (tokenData?.token) {
+            hasJoinedRef.current = true;
             setConnectionState("joining");
-            joinMutation.mutate(
-                { classId: params.classId },
-                {
-                    onSettled: async () => {
-                        try {
-                            setConnectionState("connecting");
-                            const userStr = typeof window !== "undefined" ? localStorage.getItem("user") : null;
-                            const user = userStr ? JSON.parse(userStr) : { name: "Student" };
+            void (async () => {
+                try {
+                    setConnectionState("connecting");
+                    const userStr = typeof window !== "undefined" ? localStorage.getItem("user") : null;
+                    const user = userStr ? JSON.parse(userStr) : { name: "Student" };
 
-                            await hmsActions.join({
-                                authToken: tokenData.token,
-                                userName: user.name || "Student",
-                            });
-                        } catch (err) {
-                            console.error("Failed to join room:", err);
-                            setErrorMessage(err instanceof Error ? err.message : "Failed to join the session");
-                            setConnectionState("error");
-                        }
-                    },
+                    await hmsActions.join({
+                        authToken: tokenData.token,
+                        userName: user.name || "Student",
+                    });
+
+                    try {
+                        await joinLiveClass(params.classId);
+                    } catch (attendanceErr) {
+                        console.warn("Failed to record attendance:", attendanceErr);
+                    }
+                } catch (err) {
+                    console.error("Failed to join room:", err);
+                    hasJoinedRef.current = false;
+                    setErrorMessage(err instanceof Error ? err.message : "Failed to join the session");
+                    setConnectionState("error");
                 }
-            );
+            })();
         } else if (isError) {
             const errMessage = (error as any)?.message || "";
             const errLower = errMessage.toLowerCase();
             const is403 = (error as any)?.status === 403 || errLower.includes("403");
+            hasJoinedRef.current = false;
 
             // Banned or suspended — show error, don't poll
             if (errLower.includes("banned") || errLower.includes("suspended")) {
@@ -321,21 +338,22 @@ export default function LiveSessionClient() {
                 setConnectionState("error");
             }
         } else if (!tokenData) {
+            hasJoinedRef.current = false;
             setConnectionState("loading");
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tokenData, error, isError, isFetching]);
+    }, [tokenData, error, isError, isFetching, hmsActions, params.classId]);
 
     // Waiting room polling
     useEffect(() => {
         let interval: NodeJS.Timeout;
-        if (connectionState === "waiting" || connectionState === "loading") {
+        if (connectionState === "waiting") {
             interval = setInterval(() => {
-                window.dispatchEvent(new Event("visibilitychange"));
+                void refetchToken();
             }, 3000);
         }
         return () => clearInterval(interval);
-    }, [connectionState]);
+    }, [connectionState, refetchToken]);
 
     // Sync room state
     useEffect(() => {
@@ -349,9 +367,9 @@ export default function LiveSessionClient() {
     // Cleanup on unmount
     useEffect(() => {
         return () => {
-            if (isConnected) {
-                hmsActions.leave().catch(console.error);
-            }
+            hmsActions.leave().catch(() => {
+                // Ignore teardown errors during navigation/reload
+            });
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -435,6 +453,28 @@ export default function LiveSessionClient() {
     useEffect(() => {
         if (!notification) return;
 
+        if (notification.type === HMSNotificationTypes.ROLE_UPDATED) {
+            const peer = notification.data as HMSPeer | undefined;
+            if (!peer?.isLocal || !peer.roleName) {
+                return;
+            }
+
+            if (peer.roleName === "viewer-on-stage") {
+                toast.success("You've been brought on stage");
+
+                if (!isAudioEnabled) {
+                    void hmsActions.setLocalAudioEnabled(true).catch((err) => {
+                        console.error("Failed to enable audio after stage promotion:", err);
+                        toast.error("You're on stage. Turn on your mic to speak.");
+                    });
+                }
+            } else if (peer.roleName === "viewer") {
+                toast.info("You've been moved off stage");
+            }
+
+            return;
+        }
+
         if (notification.type === HMSNotificationTypes.NEW_MESSAGE) {
             const msg = notification.data;
             if (!msg) return;
@@ -469,7 +509,7 @@ export default function LiveSessionClient() {
             setChatMessages((prev) => [...prev, newMsg]);
             if (!showChat) setUnreadCount((c) => c + 1);
         }
-    }, [notification, showChat]);
+    }, [notification, showChat, hmsActions, isAudioEnabled]);
 
     // ─── Actions ─────────────────────────────────────────────────────────────
 
@@ -698,7 +738,9 @@ export default function LiveSessionClient() {
                     {currentRole === "viewer-on-stage" && (
                         <div className="absolute top-14 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 bg-[#f59e0b]/90 rounded-full pointer-events-auto">
                             <Mic className="w-3.5 h-3.5 text-white" />
-                            <span className="text-xs font-semibold text-white">On stage</span>
+                            <span className="text-xs font-semibold text-white">
+                                {isAudioEnabled ? "On stage" : "On stage - turn on mic"}
+                            </span>
                         </div>
                     )}
 
@@ -835,7 +877,9 @@ export default function LiveSessionClient() {
             {currentRole === "viewer-on-stage" && (
                 <div className="flex items-center gap-2 px-4 py-2 bg-[#f59e0b] shrink-0">
                     <Mic className="w-4 h-4 text-white" />
-                    <span className="text-sm font-semibold text-white">You&apos;re on stage — Mic active</span>
+                    <span className="text-sm font-semibold text-white">
+                        {isAudioEnabled ? "You&apos;re on stage — Mic active" : "You&apos;re on stage — turn on your mic to speak"}
+                    </span>
                 </div>
             )}
 
