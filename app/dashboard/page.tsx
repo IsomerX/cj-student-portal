@@ -102,7 +102,7 @@ function formatClassTime(dateString: string): string {
 
 function DashboardLoadingState() {
   return (
-    <main className="min-h-[100dvh] bg-[#f0f2f5] pb-28 sm:pb-12">
+    <main className="min-h-[100dvh] overflow-x-hidden bg-[#f0f2f5] pb-28 sm:pb-12">
       <section className="h-64 w-full animate-pulse rounded-b-[32px] bg-[#283618]" />
       <div className="mx-auto max-w-6xl space-y-4 px-3 sm:px-6 lg:px-8">
         <div className="-mt-10 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
@@ -295,7 +295,7 @@ export default function DashboardPage() {
     liveClassesQuery.error instanceof Error ? liveClassesQuery.error.message : null;
 
   return (
-    <main className="min-h-[100dvh] bg-[#f0f2f5] pb-28 sm:pb-12">
+    <main className="min-h-[100dvh] overflow-x-hidden bg-[#f0f2f5] pb-28 sm:pb-12">
       <section className="relative overflow-hidden rounded-b-[32px] bg-[#283618] px-3 pb-24 pt-5 shadow-lg sm:rounded-b-[40px] sm:px-6 sm:pb-28 sm:pt-6 lg:px-8">
         <div className="absolute -left-10 top-0 h-48 w-48 rounded-full bg-white/5 blur-2xl" />
         <div className="absolute right-0 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-[#cadab2]/10 blur-3xl lg:translate-x-1/4" />

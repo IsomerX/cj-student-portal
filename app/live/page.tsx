@@ -1,21 +1,16 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { format, isToday, isTomorrow } from "date-fns";
 import {
     GraduationCap,
-    Home,
     LogOut,
     Video,
     Clock,
     Users,
     ChevronRight,
-    Brain,
-    CircleHelp,
-    BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/api/auth";
@@ -102,14 +97,14 @@ function LiveClassCard({
                 </div>
             </div>
 
-            <div className="mt-4 flex items-center gap-4 border-t border-[#f3f4f6] pt-4">
-                <div className="flex items-center gap-1.5 text-xs text-[#737373]">
+            <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-[#f3f4f6] pt-4">
+                <div className="flex min-w-0 items-center gap-1.5 text-xs text-[#737373]">
                     <Clock className="h-3.5 w-3.5" />
-                    <span>
+                    <span className="break-words">
                         {formatClassDate(liveClass.startAt)} at {formatClassTime(liveClass.startAt)}
                     </span>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-[#737373]">
+                <div className="flex min-w-0 items-center gap-1.5 text-xs text-[#737373]">
                     <Users className="h-3.5 w-3.5" />
                     <span>{liveClass._count?.attendance || 0} attended</span>
                 </div>
@@ -146,7 +141,7 @@ export default function LiveClassesPage() {
 
     return (
         <>
-            <main className="min-h-[100dvh] bg-[#f0f2f5] pb-36 sm:pb-12">
+            <main className="min-h-[100dvh] overflow-x-hidden bg-[#f0f2f5] pb-36 sm:pb-12">
                 {/* Header */}
                 <section className="relative rounded-b-[32px] bg-[#283618] px-3 pb-8 pt-5 shadow-lg sm:rounded-b-[40px] sm:px-6 sm:pb-10 sm:pt-6 lg:px-8 overflow-hidden">
                     <div className="absolute -left-10 top-0 h-48 w-48 rounded-full bg-white/5 blur-2xl" />

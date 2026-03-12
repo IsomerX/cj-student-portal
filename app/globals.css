@@ -57,11 +57,14 @@
 
 html {
   @apply border-border;
+  overflow-x: hidden;
 }
 
 body {
   @apply bg-background text-foreground;
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .shadow-card-large {
