@@ -59,8 +59,8 @@ function LiveClassCard({
                 isLive && "ring-[#fecaca] hover:ring-[#fca5a5]"
             )}
         >
-            <div className="flex w-full items-start justify-between">
-                <div className="flex flex-1 items-start gap-3">
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
                     <div
                         className={cn(
                             "flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]",
@@ -81,7 +81,7 @@ function LiveClassCard({
                         </p>
                     </div>
                 </div>
-                <div className="flex flex-col items-end gap-2 shrink-0 ml-3">
+                <div className="ml-0 flex shrink-0 flex-row items-center gap-2 self-start sm:ml-3 sm:flex-col sm:items-end sm:self-auto">
                     <span
                         className="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em]"
                         style={{ backgroundColor: status.bg, color: status.text }}

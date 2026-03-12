@@ -179,7 +179,7 @@ function LiveClassPreviewCard({ liveClass }: { liveClass: LiveClass }) {
           : "border-[#ece5c8] hover:border-[#cadab2]",
       )}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <div
@@ -204,10 +204,10 @@ function LiveClassPreviewCard({ liveClass }: { liveClass: LiveClass }) {
               {formatClassDate(liveClass.startAt)}
             </span>
             <span>{formatClassTime(liveClass.startAt)}</span>
-            <span className="truncate">{liveClass.host?.name || "Unknown Host"}</span>
+            <span className="min-w-0 break-words">{liveClass.host?.name || "Unknown Host"}</span>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto">
           <span
             className={cn(
               "inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em]",
@@ -392,8 +392,8 @@ export default function DashboardPage() {
       <div className="relative z-10 mx-auto -mt-10 max-w-6xl px-3 sm:-mt-12 sm:px-6 lg:px-8">
         <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
           <section className="rounded-[24px] border border-[#ece5c8] bg-white p-5 shadow-sm sm:p-6">
-            <div className="flex items-start justify-between gap-3">
-              <div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#737373]">
                   Live updates
                 </p>
@@ -401,7 +401,7 @@ export default function DashboardPage() {
               </div>
               <Link
                 href="/live"
-                className="inline-flex items-center gap-2 rounded-full bg-[#283618] px-4 py-2 text-sm font-bold text-white transition-all hover:bg-[#1f2b13]"
+                className="inline-flex items-center gap-2 self-start whitespace-nowrap rounded-full bg-[#283618] px-4 py-2 text-sm font-bold text-white transition-all hover:bg-[#1f2b13] sm:self-auto"
               >
                 Open live
                 <ChevronRight className="h-4 w-4" />
