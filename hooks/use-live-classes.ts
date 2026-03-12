@@ -6,6 +6,7 @@ import {
     fetchMyLiveClasses,
     fetchLiveClassToken,
     fetchRecordingsByBatch,
+    type Recording,
 } from "@/lib/api/live-classes";
 import { getStoredToken } from "@/lib/auth/storage";
 import { liveClassQueryKeys } from "@/lib/query-keys";
@@ -17,6 +18,11 @@ export function useLiveClassesQuery() {
         queryKey: liveClassQueryKeys.list(),
         queryFn: () => fetchMyLiveClasses(),
         enabled: Boolean(token),
+        staleTime: 10 * 1000,
+        refetchInterval: 15 * 1000,
+        refetchIntervalInBackground: true,
+        refetchOnMount: true,
+        refetchOnWindowFocus: true,
     });
 }
 
@@ -37,17 +43,18 @@ export function useLiveClassTokenQuery(classId: string, enabled: boolean = true)
 
 export function useRecordingsQuery(batchIds: string[]) {
     const token = getStoredToken();
+    const normalizedBatchIds = [...new Set(batchIds.filter(Boolean))].sort();
 
     return useQuery({
-        queryKey: [...liveClassQueryKeys.recordings(), batchIds],
+        queryKey: [...liveClassQueryKeys.recordings(), normalizedBatchIds],
         queryFn: async () => {
-            if (batchIds.length === 0) return [];
+            if (normalizedBatchIds.length === 0) return [];
 
             const results = await Promise.allSettled(
-                batchIds.map((id) => fetchRecordingsByBatch(id))
+                normalizedBatchIds.map((id) => fetchRecordingsByBatch(id))
             );
 
-            const allRecordings: any[] = [];
+            const allRecordings: Recording[] = [];
             const seenIds = new Set<string>();
 
             for (const result of results) {
@@ -66,6 +73,9 @@ export function useRecordingsQuery(batchIds: string[]) {
             );
             return allRecordings;
         },
-        enabled: Boolean(token) && batchIds.length > 0,
+        enabled: Boolean(token) && normalizedBatchIds.length > 0,
+        staleTime: 15 * 1000,
+        refetchInterval: 30 * 1000,
+        refetchOnWindowFocus: true,
     });
 }

@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ArrowLeft, Play, Video, Clock, HardDrive } from "lucide-react";
-import { useLiveClassesQuery, useRecordingsQuery } from "@/hooks/use-live-classes";
+import { useMyBatchesQuery } from "@/hooks/use-assignments";
+import { useRecordingsQuery } from "@/hooks/use-live-classes";
 import { Recording } from "@/lib/api/live-classes";
 
 function formatDuration(seconds?: number | null): string {
@@ -33,18 +33,8 @@ function formatDate(iso?: string): string {
 
 export default function RecordingsPage() {
     const router = useRouter();
-
-    // 1. Get all batches from live classes
-    const classesQuery = useLiveClassesQuery();
-    const batchIds = [
-        ...new Set(
-            (classesQuery.data || [])
-                .map((c) => c.batchId)
-                .filter(Boolean)
-        ),
-    ];
-
-    // 2. Fetch recordings for those batches
+    const batchesQuery = useMyBatchesQuery();
+    const batchIds = [...new Set((batchesQuery.data || []).map((batch) => batch.id).filter(Boolean))];
     const { data: recordings, isLoading } = useRecordingsQuery(batchIds);
 
     const handleRecordingPress = (recording: Recording) => {
@@ -78,10 +68,20 @@ export default function RecordingsPage() {
 
             {/* Content Area */}
             <div className="mx-auto max-w-4xl px-3 pt-6 sm:px-6 lg:px-8">
-                {(isLoading || classesQuery.isLoading) ? (
+                {(isLoading || batchesQuery.isLoading) ? (
                     <div className="space-y-4">
                         <div className="h-24 rounded-[20px] bg-white shadow-sm ring-1 ring-[#ece5c8] animate-pulse" />
                         <div className="h-24 rounded-[20px] bg-white shadow-sm ring-1 ring-[#ece5c8] animate-pulse" />
+                    </div>
+                ) : batchIds.length === 0 ? (
+                    <div className="rounded-[24px] border border-[#ece5c8] bg-white px-5 py-16 text-center shadow-sm">
+                        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[20px] bg-[#f3f4f6] text-[#737373] ring-1 ring-[#e5e7eb]">
+                            <Video className="h-8 w-8" />
+                        </div>
+                        <h3 className="mt-5 text-lg font-bold text-[#212121]">No active batches found</h3>
+                        <p className="mt-2 text-sm text-[#737373] max-w-md mx-auto">
+                            Recordings appear once your student account is linked to an active CJ batch.
+                        </p>
                     </div>
                 ) : recordings?.length === 0 ? (
                     <div className="rounded-[24px] border border-[#ece5c8] bg-white px-5 py-16 text-center shadow-sm">
