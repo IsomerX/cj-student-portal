@@ -6,6 +6,7 @@ import {
     useHMSActions,
     useHMSStore,
     useHMSNotifications,
+    useAutoplayError,
     useVideo,
     selectPeers,
     selectLocalPeer,
@@ -133,6 +134,37 @@ function EmojiOverlay({ emojis }: { emojis: FloatingEmoji[] }) {
     );
 }
 
+function AudioRestoreBanner({
+    onRestore,
+    compact,
+}: {
+    onRestore: () => void;
+    compact?: boolean;
+}) {
+    return (
+        <div
+            className={`flex items-center justify-between gap-3 rounded-2xl bg-[#f59e0b] text-white shadow-lg ${
+                compact ? "px-3 py-2" : "mx-3 mb-2 px-4 py-3"
+            }`}
+        >
+            <div className="min-w-0">
+                <p className="text-sm font-semibold">Audio needs a tap on this device</p>
+                {!compact && (
+                    <p className="text-xs text-white/90">
+                        If you can hear the teacher but not students on stage, restore audio once.
+                    </p>
+                )}
+            </div>
+            <button
+                onClick={onRestore}
+                className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[#8a5a00] transition-colors hover:bg-white/90"
+            >
+                Restore audio
+            </button>
+        </div>
+    );
+}
+
 function ChatPanel({
     messages,
     onSend,
@@ -220,6 +252,7 @@ export default function LiveSessionClient() {
     const isAudioEnabled = useHMSStore(selectIsLocalAudioEnabled);
     const roomState = useHMSStore(selectRoomState);
     const notification = useHMSNotifications();
+    const { error: autoplayError, unblockAudio, resetError: resetAutoplayError } = useAutoplayError();
 
     // State
     const [connectionState, setConnectionState] = useState<ConnectionState>("loading");
@@ -402,6 +435,17 @@ export default function LiveSessionClient() {
     }, []);
 
     const handleStageTap = useCallback(() => {
+        if (autoplayError) {
+            void unblockAudio()
+                .then(() => {
+                    resetAutoplayError();
+                    toast.success("Audio restored");
+                })
+                .catch((err) => {
+                    console.error("Failed to restore blocked audio:", err);
+                });
+        }
+
         if (!isLandscape) return;
         if (showControls) {
             // Tap while visible → hide immediately
@@ -411,7 +455,7 @@ export default function LiveSessionClient() {
         } else {
             resetControlsTimer();
         }
-    }, [isLandscape, showControls, resetControlsTimer]);
+    }, [autoplayError, unblockAudio, resetAutoplayError, isLandscape, showControls, resetControlsTimer]);
 
     // Clear timer on unmount
     useEffect(() => {
@@ -511,6 +555,14 @@ export default function LiveSessionClient() {
         }
     }, [notification, showChat, hmsActions, isAudioEnabled]);
 
+    useEffect(() => {
+        if (!autoplayError) {
+            return;
+        }
+
+        toast.error("Audio playback is blocked on this browser. Tap restore audio.");
+    }, [autoplayError]);
+
     // ─── Actions ─────────────────────────────────────────────────────────────
 
     const triggerEmoji = useCallback((emoji: string, sender: string) => {
@@ -581,6 +633,17 @@ export default function LiveSessionClient() {
             return !prev;
         });
     }, []);
+
+    const handleRestoreAudio = useCallback(async () => {
+        try {
+            await unblockAudio();
+            resetAutoplayError();
+            toast.success("Audio restored");
+        } catch (err) {
+            console.error("Failed to restore blocked audio:", err);
+            toast.error("Safari is still blocking audio. Tap once more.");
+        }
+    }, [unblockAudio, resetAutoplayError]);
 
     // ─── Pre-connection states ───────────────────────────────────────────────
 
@@ -707,6 +770,12 @@ export default function LiveSessionClient() {
                     </div>
                     <EmojiOverlay emojis={floatingEmojis} />
                 </div>
+
+                {autoplayError && (
+                    <div className="absolute left-3 right-3 top-16 z-20 pointer-events-auto">
+                        <AudioRestoreBanner onRestore={handleRestoreAudio} compact />
+                    </div>
+                )}
 
                 {/* Overlay controls — shown on tap, auto-hide after 4s */}
                 <div
@@ -874,6 +943,8 @@ export default function LiveSessionClient() {
             </div>
 
             {/* On-stage banner */}
+            {autoplayError && <AudioRestoreBanner onRestore={handleRestoreAudio} />}
+
             {currentRole === "viewer-on-stage" && (
                 <div className="flex items-center gap-2 px-4 py-2 bg-[#f59e0b] shrink-0">
                     <Mic className="w-4 h-4 text-white" />
