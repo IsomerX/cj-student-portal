@@ -1,11 +1,10 @@
 "use client";
 
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 import {
     fetchMyLiveClasses,
     fetchLiveClassToken,
-    joinLiveClass,
     fetchRecordingsByBatch,
 } from "@/lib/api/live-classes";
 import { getStoredToken } from "@/lib/auth/storage";
@@ -33,12 +32,6 @@ export function useLiveClassTokenQuery(classId: string, enabled: boolean = true)
         staleTime: 0,
         // Handled manually by component for 403
         retry: false,
-    });
-}
-
-export function useJoinLiveClassMutation() {
-    return useMutation({
-        mutationFn: ({ classId }: { classId: string }) => joinLiveClass(classId),
     });
 }
 
