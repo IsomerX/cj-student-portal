@@ -68,7 +68,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           data-slot="input"
           disabled={disabled}
           className={cn(
-            "h-11 w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#414141] shadow-sm outline-none transition-all placeholder:text-[#a3a3a3] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
+            "h-12 w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3 py-2 text-base text-[#414141] shadow-sm outline-none transition-all placeholder:text-[#a3a3a3] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:text-sm",
             "focus:border-[#283618] focus:ring-2 focus:ring-[#283618]/20",
             "aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-500/20",
             leftIcon ? "pl-10" : "",

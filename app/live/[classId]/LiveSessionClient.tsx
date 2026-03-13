@@ -71,7 +71,19 @@ const EMOJI_LIFETIME_MS = 5200;
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function VideoTile({ peer, isLocal, noRound, isActiveSpeaker }: { peer: HMSPeer; isLocal?: boolean; noRound?: boolean; isActiveSpeaker?: boolean }) {
+function VideoTile({
+    peer,
+    isLocal,
+    noRound,
+    isActiveSpeaker,
+    videoFit = "cover",
+}: {
+    peer: HMSPeer;
+    isLocal?: boolean;
+    noRound?: boolean;
+    isActiveSpeaker?: boolean;
+    videoFit?: "cover" | "contain";
+}) {
     const { videoRef } = useVideo({ trackId: peer.videoTrack });
     const isAudioEnabled = useHMSStore(selectIsPeerAudioEnabled(peer.id));
     const hasVideo = !!peer.videoTrack;
@@ -84,7 +96,7 @@ function VideoTile({ peer, isLocal, noRound, isActiveSpeaker }: { peer: HMSPeer;
                 autoPlay
                 muted
                 playsInline
-                className={`w-full h-full object-cover ${!hasVideo ? "hidden" : ""}`}
+                className={`pointer-events-none h-full w-full ${videoFit === "contain" ? "object-contain" : "object-cover"} ${!hasVideo ? "hidden" : ""}`}
             />
             {!hasVideo && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
@@ -113,7 +125,13 @@ function ScreenShareView({ trackId, peerName, noRound }: { trackId: string; peer
     const { videoRef } = useVideo({ trackId });
     return (
         <div className={`relative w-full h-full bg-black overflow-hidden ${noRound ? "" : "rounded-2xl"}`}>
-            <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-contain" />
+            <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                className="pointer-events-none h-full w-full object-contain"
+            />
             <div className="absolute bottom-2 left-2">
                 <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-white bg-black/60 backdrop-blur-sm rounded-lg">
                     <MonitorUp className="w-3 h-3" />
@@ -171,32 +189,37 @@ function ChatPanel({
     };
 
     return (
-        <div className="flex flex-col h-full bg-white rounded-t-2xl sm:rounded-2xl border border-[#e5e5e5] overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#e5e5e5]">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-t-2xl border border-[#e5e5e5] bg-white sm:rounded-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-[#e5e5e5] px-4 py-3">
                 <span className="font-bold text-[#414141]">Chat</span>
                 <button onClick={onClose} className="p-1 rounded-lg hover:bg-[#f5f5f5] transition-colors">
                     <X className="w-5 h-5 text-[#737373]" />
                 </button>
             </div>
-            <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3 scrollbar-thin">
+            <div
+                ref={scrollRef}
+                className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-3 space-y-3 scrollbar-thin"
+            >
                 {messages.length === 0 && (
                     <p className="text-sm text-[#737373] text-center py-8">No messages yet</p>
                 )}
                 {messages.map((msg) => (
-                    <div key={msg.id}>
-                        <span className="text-xs font-semibold text-[#c4a57b]">{msg.sender}</span>
-                        <p className="text-sm text-[#414141] leading-relaxed">{msg.text}</p>
+                    <div key={msg.id} className="min-w-0 overflow-hidden">
+                        <span className="block truncate text-xs font-semibold text-[#c4a57b]">{msg.sender}</span>
+                        <p className="break-words whitespace-pre-wrap text-sm leading-relaxed text-[#414141]">
+                            {msg.text}
+                        </p>
                     </div>
                 ))}
             </div>
-            <div className="flex items-center gap-2 px-3 py-3 border-t border-[#e5e5e5]">
+            <div className="flex shrink-0 items-center gap-2 border-t border-[#e5e5e5] px-3 py-3">
                 <input
                     type="text"
                     value={text}
                     onChange={(e) => setText(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSend()}
                     placeholder="Type a message..."
-                    className="flex-1 bg-[#f5f5f5] rounded-xl px-3 py-2.5 text-sm text-[#414141] placeholder:text-[#a8a8a8] outline-none focus:ring-1 focus:ring-[#414141]/20"
+                    className="min-w-0 flex-1 rounded-xl bg-[#f5f5f5] px-3 py-2.5 text-sm text-[#414141] outline-none placeholder:text-[#a8a8a8] focus:ring-1 focus:ring-[#414141]/20"
                 />
                 <button
                     onClick={handleSend}
@@ -524,6 +547,14 @@ export default function LiveSessionClient() {
             resetControlsTimer();
         }
     }, [isLandscape, showControls, resetControlsTimer]);
+
+    useEffect(() => {
+        if (!isLandscape || connectionState !== "connected") {
+            return;
+        }
+
+        resetControlsTimer();
+    }, [connectionState, isLandscape, resetControlsTimer]);
 
     // Clear timer on unmount
     useEffect(() => {
@@ -913,8 +944,13 @@ export default function LiveSessionClient() {
                     )}
                 </div>
             ) : broadcasterPeer ? (
-                <div className={`w-full h-full overflow-hidden bg-[#f5f0dc] ${noRound ? "" : "rounded-2xl"}`}>
-                    <VideoTile peer={broadcasterPeer} noRound={noRound} isActiveSpeaker={dominantSpeaker?.id === broadcasterPeer.id} />
+                <div className={`w-full h-full overflow-hidden ${noRound ? "bg-black" : "rounded-2xl bg-[#f5f0dc]"}`}>
+                    <VideoTile
+                        peer={broadcasterPeer}
+                        noRound={noRound}
+                        isActiveSpeaker={dominantSpeaker?.id === broadcasterPeer.id}
+                        videoFit={noRound ? "contain" : "cover"}
+                    />
                 </div>
             ) : (
                 <div className={`w-full h-full bg-[#f5f0dc] flex items-center justify-center ${noRound ? "" : "rounded-2xl"}`}>
@@ -932,12 +968,32 @@ export default function LiveSessionClient() {
                 className="relative z-[100] w-full max-w-full overflow-hidden bg-black"
                 style={liveSessionViewportStyle}
             >
-                {/* Fullscreen video — tap to toggle controls */}
-                <div className="absolute inset-0" onClick={handleStageTap}>
-                    <div className="w-full h-full">
-                        {renderVideoStage(true)}
+                {/* Fullscreen stage + split chat */}
+                <div className="absolute inset-0 flex">
+                    <div
+                        className={`${showChat ? "w-1/2" : "w-full"} relative min-w-0 h-full`}
+                        onPointerUp={handleStageTap}
+                    >
+                        <div className="h-full w-full">
+                            {renderVideoStage(true)}
+                        </div>
+                        <EmojiOverlay emojis={floatingEmojis} />
                     </div>
-                    <EmojiOverlay emojis={floatingEmojis} />
+
+                    {showChat && (
+                        <div
+                            className="h-full w-1/2 min-w-0 border-l border-white/10 bg-black/30 pointer-events-auto"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="h-full min-h-0 overflow-hidden">
+                                <ChatPanel
+                                    messages={chatMessages}
+                                    onSend={(text) => { handleSendChat(text); resetControlsTimer(); }}
+                                    onClose={() => setShowChat(false)}
+                                />
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Overlay controls — shown on tap, auto-hide after 4s */}
@@ -948,7 +1004,9 @@ export default function LiveSessionClient() {
                 >
                     {/* Top bar */}
                     <div
-                        className={`absolute top-0 left-0 right-0 flex items-center gap-3 px-4 py-3 bg-black/50 backdrop-blur-sm ${
+                        className={`absolute top-0 left-0 flex items-center gap-3 px-4 py-3 bg-black/50 backdrop-blur-sm ${
+                            showChat ? "right-1/2" : "right-0"
+                        } ${
                             showControls ? "pointer-events-auto" : ""
                         }`}
                         style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
@@ -968,7 +1026,9 @@ export default function LiveSessionClient() {
 
                     {/* On-stage banner in landscape */}
                     {currentRole === "viewer-on-stage" && (
-                        <div className="absolute top-14 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 bg-[#f59e0b]/90 rounded-full pointer-events-auto">
+                        <div className={`absolute top-14 flex items-center gap-2 px-3 py-1.5 bg-[#f59e0b]/90 rounded-full pointer-events-auto ${
+                            showChat ? "left-1/4 -translate-x-1/2" : "left-1/2 -translate-x-1/2"
+                        }`}>
                             <Mic className="w-3.5 h-3.5 text-white" />
                             <span className="text-xs font-semibold text-white">
                                 {isAudioEnabled ? "On stage" : "On stage - turn on mic"}
@@ -978,7 +1038,9 @@ export default function LiveSessionClient() {
 
                     {/* Bottom controls */}
                     <div
-                        className={`absolute bottom-0 left-0 right-0 bg-black/50 backdrop-blur-sm ${
+                        className={`absolute bottom-0 left-0 bg-black/50 backdrop-blur-sm ${
+                            showChat ? "right-1/2" : "right-0"
+                        } ${
                             showControls ? "pointer-events-auto" : ""
                         }`}
                         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
@@ -1065,26 +1127,12 @@ export default function LiveSessionClient() {
                             </button>
                         </div>
                     </div>
-
-                    {/* Chat panel in landscape — right side overlay */}
-                    {showChat && (
-                        <div
-                            className="absolute top-0 right-0 bottom-0 w-[45%] max-w-xs z-20 pointer-events-auto"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="h-full pt-14 pb-32">
-                                <ChatPanel
-                                    messages={chatMessages}
-                                    onSend={(text) => { handleSendChat(text); resetControlsTimer(); }}
-                                    onClose={() => setShowChat(false)}
-                                />
-                            </div>
-                        </div>
-                    )}
                 </div>
 
                 {canPublishAudio && !showControls && (
-                    <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 pointer-events-auto">
+                    <div className={`absolute bottom-4 z-20 flex items-center gap-3 pointer-events-auto ${
+                        showChat ? "left-1/4 -translate-x-1/2" : "left-1/2 -translate-x-1/2"
+                    }`}>
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -1115,7 +1163,7 @@ export default function LiveSessionClient() {
 
     return (
         <div
-            className="flex w-full max-w-full flex-col overflow-hidden bg-[#fffbe7]"
+            className="flex h-full min-h-screen w-full max-w-full flex-col overflow-hidden bg-[#fffbe7]"
             style={liveSessionViewportStyle}
         >
             {/* Header */}
@@ -1141,7 +1189,7 @@ export default function LiveSessionClient() {
                 <div className="flex items-center gap-2 px-4 py-2 bg-[#f59e0b] shrink-0">
                     <Mic className="w-4 h-4 text-white" />
                     <span className="text-sm font-semibold text-white">
-                        {isAudioEnabled ? "You&apos;re on stage — Mic active" : "You&apos;re on stage — turn on your mic to speak"}
+                        {isAudioEnabled ? "You're on stage — Mic active" : "You're on stage — turn on your mic to speak"}
                     </span>
                 </div>
             )}
@@ -1153,7 +1201,7 @@ export default function LiveSessionClient() {
 
                 {/* Chat overlay on mobile / sidebar on larger screens */}
                 {showChat && (
-                    <div className="absolute inset-0 sm:inset-auto sm:right-0 sm:top-0 sm:bottom-0 sm:w-80 z-40">
+                    <div className="absolute inset-0 z-40 min-h-0 overflow-hidden sm:inset-auto sm:bottom-0 sm:right-0 sm:top-0 sm:w-80">
                         <ChatPanel
                             messages={chatMessages}
                             onSend={handleSendChat}
