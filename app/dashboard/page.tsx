@@ -13,7 +13,6 @@ import {
   LogOut,
   RefreshCw,
   Sparkles,
-  User,
   Video,
   type LucideIcon,
 } from "lucide-react";
@@ -353,11 +352,14 @@ export default function DashboardPage() {
         <div className="absolute right-0 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-[#cadab2]/10 blur-3xl lg:translate-x-1/4" />
 
         <div className="relative mx-auto max-w-6xl">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-row items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2.5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-white text-[#283618] shadow-sm ring-2 ring-white/10 sm:h-12 sm:w-12 sm:rounded-[16px]">
+              <button
+                onClick={() => router.push("/profile")}
+                className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-white text-[#283618] shadow-sm ring-2 ring-white/10 transition-transform hover:scale-105 active:scale-95 sm:h-12 sm:w-12 sm:rounded-[16px]"
+              >
                 <GraduationCap className="h-5 w-5 sm:h-6 sm:w-6" />
-              </div>
+              </button>
               <div className="min-w-0">
                 <p className="truncate text-[9px] font-bold uppercase tracking-[0.2em] text-white/70 sm:text-[10px]">
                   Student Portal
@@ -368,7 +370,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 self-end sm:self-auto">
+            <div className="flex items-center justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -385,16 +387,6 @@ export default function DashboardPage() {
                   )}
                 />
                 <span className="hidden sm:ml-2 sm:inline">Refresh</span>
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => router.push("/profile")}
-                className="h-9 rounded-[12px] border-0 bg-white/10 px-3 text-white backdrop-blur-md hover:bg-white/20 hover:text-white"
-              >
-                <User className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Profile</span>
               </Button>
               <Button
                 type="button"
