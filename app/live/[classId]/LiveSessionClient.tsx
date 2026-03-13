@@ -11,6 +11,7 @@ import {
     selectPeers,
     selectLocalPeer,
     selectIsLocalAudioEnabled,
+    selectIsLocalVideoEnabled,
     selectRoomState,
     selectIsPeerAudioEnabled,
     HMSNotificationTypes,
@@ -230,6 +231,7 @@ export default function LiveSessionClient() {
     const peers = useHMSStore(selectPeers);
     const localPeer = useHMSStore(selectLocalPeer);
     const isAudioEnabled = useHMSStore(selectIsLocalAudioEnabled);
+    const isVideoEnabled = useHMSStore(selectIsLocalVideoEnabled);
     const roomState = useHMSStore(selectRoomState);
     const notification = useHMSNotifications();
     const { error: autoplayError, unblockAudio, resetError: resetAutoplayError } = useAutoplayError();
@@ -613,6 +615,9 @@ export default function LiveSessionClient() {
                 return;
             }
 
+            // Camera request from teacher — handled in a separate effect
+            if (msg.type === "request_video") return;
+
             const newMsg: ChatMessage = {
                 id: msg.id || Date.now().toString(),
                 sender: msg.senderName || "Unknown",
@@ -661,6 +666,25 @@ export default function LiveSessionClient() {
         }
     }, [hmsActions, requestMicrophonePermission, showMicrophonePermissionError]);
 
+    const requestCameraPermission = useCallback(async () => {
+        if (!navigator.mediaDevices?.getUserMedia) {
+            throw new Error("This browser does not support camera access.");
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream.getTracks().forEach((track) => track.stop());
+    }, []);
+
+    const enableCamera = useCallback(async () => {
+        try {
+            await requestCameraPermission();
+            await hmsActions.setLocalVideoEnabled(true);
+        } catch (err) {
+            console.error("Failed to enable camera:", err);
+            toast.error("Could not turn on camera. Please allow camera access in your browser settings.");
+        }
+    }, [hmsActions, requestCameraPermission]);
+
+    // Auto-enable mic + camera when brought on stage
     useEffect(() => {
         if (!notification) {
             return;
@@ -671,10 +695,21 @@ export default function LiveSessionClient() {
         }
 
         const peer = notification.data as HMSPeer | undefined;
-        if (peer?.isLocal && peer.roleName === "viewer-on-stage" && !isAudioEnabled) {
-            void enableMicrophone();
+        if (peer?.isLocal && peer.roleName === "viewer-on-stage") {
+            if (!isAudioEnabled) void enableMicrophone();
+            if (!isVideoEnabled) void enableCamera();
         }
-    }, [notification, isAudioEnabled, enableMicrophone]);
+    }, [notification, isAudioEnabled, isVideoEnabled, enableMicrophone, enableCamera]);
+
+    // Handle teacher's camera request
+    useEffect(() => {
+        if (!notification) return;
+        if (notification.type !== HMSNotificationTypes.NEW_MESSAGE) return;
+        const msg = notification.data;
+        if (!msg || msg.type !== "request_video") return;
+        toast.info("Your teacher requested you to turn on your camera");
+        void enableCamera();
+    }, [notification, enableCamera]);
 
     const handleToggleMute = useCallback(async () => {
         try {
