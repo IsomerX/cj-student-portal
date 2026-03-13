@@ -6,10 +6,10 @@ import {
     useHMSActions,
     useHMSStore,
     useHMSNotifications,
+    useAutoplayError,
     useVideo,
     selectPeers,
     selectLocalPeer,
-    selectIsConnectedToRoom,
     selectIsLocalAudioEnabled,
     selectRoomState,
     selectIsPeerAudioEnabled,
@@ -32,7 +32,17 @@ import {
     Send,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useLiveClassTokenQuery, useJoinLiveClassMutation } from "@/hooks/use-live-classes";
+import { toast } from "sonner";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { joinLiveClass, LiveClassesApiError } from "@/lib/api/live-classes";
+import { useLiveClassTokenQuery } from "@/hooks/use-live-classes";
 import { liveClassQueryKeys } from "@/lib/query-keys";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -53,6 +63,9 @@ interface FloatingEmoji {
     sender: string;
     left: number;
 }
+
+const EMOJI_FLOAT_ANIMATION = "emoji-float 4.8s ease-out forwards";
+const EMOJI_LIFETIME_MS = 5200;
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -119,11 +132,11 @@ function EmojiOverlay({ emojis }: { emojis: FloatingEmoji[] }) {
                     style={{
                         bottom: -60,
                         left: `${e.left}%`,
-                        animation: "emoji-float 2.2s ease-out forwards",
+                        animation: EMOJI_FLOAT_ANIMATION,
                     }}
                 >
                     <span className="text-3xl sm:text-4xl">{e.emoji}</span>
-                    <span className="text-[10px] text-white bg-black/50 rounded-full px-1.5 py-0.5 mt-0.5 whitespace-nowrap max-w-[80px] truncate">
+                    <span className="mt-1 max-w-[140px] truncate rounded-full bg-black/70 px-2.5 py-1 text-xs font-semibold text-white shadow-lg backdrop-blur-sm sm:max-w-[180px]">
                         {e.sender}
                     </span>
                 </div>
@@ -216,10 +229,10 @@ export default function LiveSessionClient() {
     const hmsActions = useHMSActions();
     const peers = useHMSStore(selectPeers);
     const localPeer = useHMSStore(selectLocalPeer);
-    const isConnected = useHMSStore(selectIsConnectedToRoom);
     const isAudioEnabled = useHMSStore(selectIsLocalAudioEnabled);
     const roomState = useHMSStore(selectRoomState);
     const notification = useHMSNotifications();
+    const { error: autoplayError, unblockAudio, resetError: resetAutoplayError } = useAutoplayError();
 
     // State
     const [connectionState, setConnectionState] = useState<ConnectionState>("loading");
@@ -230,14 +243,23 @@ export default function LiveSessionClient() {
     const [isHandRaised, setIsHandRaised] = useState(false);
     const [floatingEmojis, setFloatingEmojis] = useState<FloatingEmoji[]>([]);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [showMicPermissionDialog, setShowMicPermissionDialog] = useState(false);
+    const [micPermissionMessage, setMicPermissionMessage] = useState(
+        "Allow microphone access to speak when your teacher brings you on stage."
+    );
+    const [micPermissionNeedsSettings, setMicPermissionNeedsSettings] = useState(false);
+    const [isRetryingMicPermission, setIsRetryingMicPermission] = useState(false);
 
     // Landscape / fullscreen controls
     const [isLandscape, setIsLandscape] = useState(false);
     const [showControls, setShowControls] = useState(false);
+    const [viewportHeight, setViewportHeight] = useState<number | null>(null);
     const controlsTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const viewportSyncFrameRef = useRef<number | null>(null);
+    const viewportSyncTimeoutsRef = useRef<number[]>([]);
 
     const hasJoinedRef = useRef(false);
-    const joinMutation = useJoinLiveClassMutation();
+    const reactionCooldownUntilRef = useRef(0);
 
     // Token polling — disabled once connected, removed, disconnected, or errored
     const shouldPollToken = !!params?.classId &&
@@ -247,7 +269,7 @@ export default function LiveSessionClient() {
         connectionState !== "disconnected" &&
         connectionState !== "error";
 
-    const { data: tokenData, error, isError, isFetching } = useLiveClassTokenQuery(
+    const { data: tokenData, error, isError, isFetching, refetch: refetchToken } = useLiveClassTokenQuery(
         params?.classId,
         shouldPollToken
     );
@@ -257,8 +279,11 @@ export default function LiveSessionClient() {
     const canPublishAudio = currentRole === "viewer-on-stage" || currentRole === "co-broadcaster" || currentRole === "broadcaster";
 
     // Find broadcaster/teacher peer
-    const broadcasterPeer = peers.find((p) => !p.isLocal && p.videoTrack) ||
-        peers.find((p) => p.roleName === "broadcaster") ||
+    const broadcasterPeer =
+        peers.find((p) => !p.isLocal && p.roleName === "broadcaster") ||
+        peers.find((p) => !p.isLocal && p.roleName === "co-broadcaster") ||
+        peers.find((p) => !p.isLocal && p.roleName === "viewer-on-stage") ||
+        peers.find((p) => !p.isLocal && p.videoTrack) ||
         peers.find((p) => !p.isLocal);
 
     // Screen share detection
@@ -275,38 +300,62 @@ export default function LiveSessionClient() {
     // ─── Token polling → join flow ──────────────────────────────────────────
 
     useEffect(() => {
-        if (isFetching || connectionState === "joining" || connectionState === "connecting" || connectionState === "connected" || connectionState === "removed" || connectionState === "disconnected" || connectionState === "error") return;
+        if (
+            isFetching ||
+            hasJoinedRef.current ||
+            connectionState === "joining" ||
+            connectionState === "connecting" ||
+            connectionState === "connected" ||
+            connectionState === "removed" ||
+            connectionState === "disconnected" ||
+            connectionState === "error"
+        ) {
+            return;
+        }
 
         if (tokenData?.token) {
+            hasJoinedRef.current = true;
             setConnectionState("joining");
-            joinMutation.mutate(
-                { classId: params.classId },
-                {
-                    onSettled: async () => {
-                        try {
-                            setConnectionState("connecting");
-                            const userStr = typeof window !== "undefined" ? localStorage.getItem("user") : null;
-                            const user = userStr ? JSON.parse(userStr) : { name: "Student" };
+            void (async () => {
+                try {
+                    setConnectionState("connecting");
+                    const userStr = typeof window !== "undefined" ? localStorage.getItem("user") : null;
+                    const user = userStr ? JSON.parse(userStr) : { name: "Student" };
 
-                            await hmsActions.join({
-                                authToken: tokenData.token,
-                                userName: user.name || "Student",
-                            });
-                        } catch (err) {
-                            console.error("Failed to join room:", err);
-                            setErrorMessage(err instanceof Error ? err.message : "Failed to join the session");
-                            setConnectionState("error");
-                        }
-                    },
+                    await hmsActions.join({
+                        authToken: tokenData.token,
+                        userName: user.name || "Student",
+                    });
+
+                    try {
+                        await joinLiveClass(params.classId);
+                    } catch (attendanceErr) {
+                        console.warn("Failed to record attendance:", attendanceErr);
+                    }
+                } catch (err) {
+                    console.error("Failed to join room:", err);
+                    hasJoinedRef.current = false;
+                    setErrorMessage(err instanceof Error ? err.message : "Failed to join the session");
+                    setConnectionState("error");
                 }
-            );
+            })();
         } else if (isError) {
-            const errMessage = (error as any)?.message || "";
+            const liveClassError = error instanceof LiveClassesApiError ? error : null;
+            const errMessage = liveClassError?.message || "";
             const errLower = errMessage.toLowerCase();
-            const is403 = (error as any)?.status === 403 || errLower.includes("403");
+            const is403 = liveClassError?.status === 403 || errLower.includes("403");
+            const isEnded =
+                liveClassError?.status === 410 ||
+                errLower.includes("class has ended") ||
+                errLower.includes("session has ended") ||
+                errLower.includes("was cancelled");
+            hasJoinedRef.current = false;
 
+            if (isEnded) {
+                setErrorMessage(errMessage || "The live session has ended.");
+                setConnectionState("removed");
             // Banned or suspended — show error, don't poll
-            if (errLower.includes("banned") || errLower.includes("suspended")) {
+            } else if (errLower.includes("banned") || errLower.includes("suspended")) {
                 setErrorMessage(errMessage);
                 setConnectionState("error");
             // Waiting room — keep polling
@@ -321,21 +370,22 @@ export default function LiveSessionClient() {
                 setConnectionState("error");
             }
         } else if (!tokenData) {
+            hasJoinedRef.current = false;
             setConnectionState("loading");
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tokenData, error, isError, isFetching]);
+    }, [tokenData, error, isError, isFetching, hmsActions, params.classId]);
 
     // Waiting room polling
     useEffect(() => {
         let interval: NodeJS.Timeout;
-        if (connectionState === "waiting" || connectionState === "loading") {
+        if (connectionState === "waiting") {
             interval = setInterval(() => {
-                window.dispatchEvent(new Event("visibilitychange"));
+                void refetchToken();
             }, 3000);
         }
         return () => clearInterval(interval);
-    }, [connectionState]);
+    }, [connectionState, refetchToken]);
 
     // Sync room state
     useEffect(() => {
@@ -349,11 +399,90 @@ export default function LiveSessionClient() {
     // Cleanup on unmount
     useEffect(() => {
         return () => {
-            if (isConnected) {
-                hmsActions.leave().catch(console.error);
-            }
+            hmsActions.leave().catch(() => {
+                // Ignore teardown errors during navigation/reload
+            });
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        const root = document.documentElement;
+        const body = document.body;
+        const previousRootOverflow = root.style.overflow;
+        const previousBodyOverflow = body.style.overflow;
+        const previousBodyOverscroll = body.style.overscrollBehavior;
+        const previousBodyTouchAction = body.style.touchAction;
+
+        root.style.overflow = "hidden";
+        body.style.overflow = "hidden";
+        body.style.overscrollBehavior = "none";
+        body.style.touchAction = "manipulation";
+
+        const getStableViewportHeight = () => {
+            const fallbackHeight = Math.round(
+                Math.max(window.innerHeight, document.documentElement.clientHeight)
+            );
+            const visualViewport = window.visualViewport;
+
+            if (!visualViewport) {
+                return fallbackHeight;
+            }
+
+            const visualViewportScale = visualViewport.scale ?? 1;
+
+            // Ignore transient scaled viewport readings during iOS rotation.
+            if (Math.abs(visualViewportScale - 1) > 0.02) {
+                return fallbackHeight;
+            }
+
+            return Math.round(Math.max(fallbackHeight, visualViewport.height));
+        };
+
+        const syncViewportHeight = () => {
+            if (viewportSyncFrameRef.current !== null) {
+                window.cancelAnimationFrame(viewportSyncFrameRef.current);
+            }
+
+            viewportSyncFrameRef.current = window.requestAnimationFrame(() => {
+                const nextHeight = getStableViewportHeight();
+                setViewportHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+            });
+        };
+
+        const scheduleViewportSettling = () => {
+            syncViewportHeight();
+            viewportSyncTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+            viewportSyncTimeoutsRef.current = [
+                window.setTimeout(syncViewportHeight, 120),
+                window.setTimeout(syncViewportHeight, 320),
+                window.setTimeout(syncViewportHeight, 650),
+            ];
+        };
+
+        scheduleViewportSettling();
+
+        window.addEventListener("resize", syncViewportHeight);
+        window.addEventListener("orientationchange", scheduleViewportSettling);
+        window.visualViewport?.addEventListener("resize", scheduleViewportSettling);
+
+        return () => {
+            window.removeEventListener("resize", syncViewportHeight);
+            window.removeEventListener("orientationchange", scheduleViewportSettling);
+            window.visualViewport?.removeEventListener("resize", scheduleViewportSettling);
+
+            if (viewportSyncFrameRef.current !== null) {
+                window.cancelAnimationFrame(viewportSyncFrameRef.current);
+            }
+
+            viewportSyncTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+            viewportSyncTimeoutsRef.current = [];
+
+            root.style.overflow = previousRootOverflow;
+            body.style.overflow = previousBodyOverflow;
+            body.style.overscrollBehavior = previousBodyOverscroll;
+            body.style.touchAction = previousBodyTouchAction;
+        };
     }, []);
 
     // ─── Landscape detection ──────────────────────────────────────────────
@@ -362,15 +491,12 @@ export default function LiveSessionClient() {
         const mql = window.matchMedia("(orientation: landscape)");
         const check = () => {
             // Only count as landscape on mobile-sized screens (not desktop)
-            const isMobileWidth = window.innerWidth < 1024;
-            setIsLandscape(mql.matches && isMobileWidth);
+            setIsLandscape(mql.matches && window.innerWidth < 1024);
         };
         check();
         mql.addEventListener("change", check);
-        window.addEventListener("resize", check);
         return () => {
             mql.removeEventListener("change", check);
-            window.removeEventListener("resize", check);
         };
     }, []);
 
@@ -402,6 +528,19 @@ export default function LiveSessionClient() {
         };
     }, []);
 
+    const triggerEmoji = useCallback((emoji: string, sender: string) => {
+        const entry: FloatingEmoji = {
+            id: Date.now() + Math.random(),
+            emoji,
+            sender,
+            left: 10 + Math.random() * 75,
+        };
+        setFloatingEmojis((prev) => [...prev, entry]);
+        setTimeout(() => {
+            setFloatingEmojis((prev) => prev.filter((e) => e.id !== entry.id));
+        }, EMOJI_LIFETIME_MS);
+    }, []);
+
     // ─── Handle removal / room end ─────────────────────────────────────────
 
     useEffect(() => {
@@ -411,7 +550,7 @@ export default function LiveSessionClient() {
             // Immediately nuke the cached token so re-navigation can't reuse it
             queryClient.removeQueries({ queryKey: liveClassQueryKeys.token(params.classId) });
 
-            const reason = (notification.data as any)?.reason || "";
+            const reason = (notification.data as { reason?: string } | undefined)?.reason || "";
             const isBan = reason.toLowerCase().includes("ban");
             setErrorMessage(
                 isBan
@@ -428,12 +567,27 @@ export default function LiveSessionClient() {
             setConnectionState("removed");
             return;
         }
-    }, [notification]);
+    }, [notification, params.classId, queryClient]);
 
     // ─── Notifications (chat, emoji, hand raise) ────────────────────────────
 
     useEffect(() => {
         if (!notification) return;
+
+        if (notification.type === HMSNotificationTypes.ROLE_UPDATED) {
+            const peer = notification.data as HMSPeer | undefined;
+            if (!peer?.isLocal || !peer.roleName) {
+                return;
+            }
+
+            if (peer.roleName === "viewer-on-stage") {
+                toast.success("You've been brought on stage");
+            } else if (peer.roleName === "viewer") {
+                toast.info("You've been moved off stage");
+            }
+
+            return;
+        }
 
         if (notification.type === HMSNotificationTypes.NEW_MESSAGE) {
             const msg = notification.data;
@@ -469,30 +623,71 @@ export default function LiveSessionClient() {
             setChatMessages((prev) => [...prev, newMsg]);
             if (!showChat) setUnreadCount((c) => c + 1);
         }
-    }, [notification, showChat]);
+    }, [notification, showChat, triggerEmoji]);
 
     // ─── Actions ─────────────────────────────────────────────────────────────
 
-    const triggerEmoji = useCallback((emoji: string, sender: string) => {
-        const entry: FloatingEmoji = {
-            id: Date.now() + Math.random(),
-            emoji,
-            sender,
-            left: 10 + Math.random() * 75,
-        };
-        setFloatingEmojis((prev) => [...prev, entry]);
-        setTimeout(() => {
-            setFloatingEmojis((prev) => prev.filter((e) => e.id !== entry.id));
-        }, 3000);
+    const requestMicrophonePermission = useCallback(async () => {
+        if (!navigator.mediaDevices?.getUserMedia) {
+            throw new Error("This browser does not support microphone access.");
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => track.stop());
     }, []);
+
+    const showMicrophonePermissionError = useCallback((err: unknown) => {
+        const errorName = err instanceof DOMException ? err.name : err instanceof Error ? err.name : "";
+        const needsSettings = errorName === "NotAllowedError" || errorName === "SecurityError";
+
+        setMicPermissionNeedsSettings(needsSettings);
+        setMicPermissionMessage(
+            needsSettings
+                ? "Microphone access is blocked. Allow mic access in your browser settings, then try again."
+                : "Microphone access is required before you can speak on stage. Please allow access and try again."
+        );
+        setShowMicPermissionDialog(true);
+    }, []);
+
+    const enableMicrophone = useCallback(async () => {
+        try {
+            await requestMicrophonePermission();
+            await hmsActions.setLocalAudioEnabled(true);
+            setShowMicPermissionDialog(false);
+            setMicPermissionNeedsSettings(false);
+        } catch (err) {
+            console.error("Failed to enable microphone:", err);
+            showMicrophonePermissionError(err);
+        }
+    }, [hmsActions, requestMicrophonePermission, showMicrophonePermissionError]);
+
+    useEffect(() => {
+        if (!notification) {
+            return;
+        }
+
+        if (notification.type !== HMSNotificationTypes.ROLE_UPDATED) {
+            return;
+        }
+
+        const peer = notification.data as HMSPeer | undefined;
+        if (peer?.isLocal && peer.roleName === "viewer-on-stage" && !isAudioEnabled) {
+            void enableMicrophone();
+        }
+    }, [notification, isAudioEnabled, enableMicrophone]);
 
     const handleToggleMute = useCallback(async () => {
         try {
-            await hmsActions.setLocalAudioEnabled(!isAudioEnabled);
+            if (isAudioEnabled) {
+                await hmsActions.setLocalAudioEnabled(false);
+                return;
+            }
+
+            await enableMicrophone();
         } catch (err) {
             console.error("Failed to toggle audio:", err);
         }
-    }, [hmsActions, isAudioEnabled]);
+    }, [hmsActions, isAudioEnabled, enableMicrophone]);
 
     const handleToggleHand = useCallback(async () => {
         try {
@@ -520,6 +715,13 @@ export default function LiveSessionClient() {
     }, [hmsActions, localPeer?.name]);
 
     const handleSendReaction = useCallback((emoji: string) => {
+        const now = Date.now();
+        if (reactionCooldownUntilRef.current > now) {
+            toast.error("Slow down a bit before sending another reaction.");
+            return;
+        }
+
+        reactionCooldownUntilRef.current = now + 1200;
         hmsActions.sendBroadcastMessage(JSON.stringify({ emoji }), "emoji_reaction");
         triggerEmoji(emoji, localPeer?.name || "You");
         setShowEmojiPicker(false);
@@ -542,19 +744,49 @@ export default function LiveSessionClient() {
         });
     }, []);
 
+    const handleRestoreAudio = useCallback(async () => {
+        try {
+            await unblockAudio();
+            resetAutoplayError();
+            toast.success("Audio restored");
+        } catch (err) {
+            console.error("Failed to restore blocked audio:", err);
+            toast.error("Safari is still blocking audio. Tap once more.");
+        }
+    }, [unblockAudio, resetAutoplayError]);
+
+    const handleRetryMicrophonePermission = useCallback(async () => {
+        setIsRetryingMicPermission(true);
+        try {
+            await enableMicrophone();
+        } finally {
+            setIsRetryingMicPermission(false);
+        }
+    }, [enableMicrophone]);
+
+    const liveSessionViewportStyle = viewportHeight
+        ? { height: `${viewportHeight}px` }
+        : undefined;
+
     // ─── Pre-connection states ───────────────────────────────────────────────
 
     if (connectionState !== "connected") {
         return (
-            <main className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#fffbe7] p-5">
-                <div className="absolute top-0 left-0 w-full p-4 sm:p-6 flex items-center gap-4">
+            <main
+                className="flex min-h-screen w-full max-w-full flex-col items-center justify-center overflow-hidden bg-[#fffbe7] p-5"
+                style={liveSessionViewportStyle}
+            >
+                <div
+                    className="absolute left-0 right-0 top-0 flex items-center gap-4 px-4 pb-4 sm:px-6 sm:pb-6"
+                    style={{ paddingTop: "max(1rem, calc(env(safe-area-inset-top) + 0.5rem))" }}
+                >
                     <button
                         onClick={() => router.push("/live")}
                         className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#414141] shadow-sm ring-1 ring-[#e5e7eb] transition-colors hover:bg-[#f9fafb]"
                     >
                         <ArrowLeft className="h-5 w-5" />
                     </button>
-                    <span className="font-bold text-[#414141]">{title}</span>
+                    <span className="min-w-0 truncate font-bold text-[#414141]">{title}</span>
                 </div>
 
                 <div className="flex flex-col items-center max-w-sm text-center">
@@ -659,7 +891,10 @@ export default function LiveSessionClient() {
 
     if (isLandscape && connectionState === "connected") {
         return (
-            <div className="fixed inset-0 bg-black z-[100]">
+            <div
+                className="relative z-[100] w-full max-w-full overflow-hidden bg-black"
+                style={liveSessionViewportStyle}
+            >
                 {/* Fullscreen video — tap to toggle controls */}
                 <div className="absolute inset-0" onClick={handleStageTap}>
                     <div className="w-full h-full">
@@ -698,7 +933,9 @@ export default function LiveSessionClient() {
                     {currentRole === "viewer-on-stage" && (
                         <div className="absolute top-14 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 bg-[#f59e0b]/90 rounded-full pointer-events-auto">
                             <Mic className="w-3.5 h-3.5 text-white" />
-                            <span className="text-xs font-semibold text-white">On stage</span>
+                            <span className="text-xs font-semibold text-white">
+                                {isAudioEnabled ? "On stage" : "On stage - turn on mic"}
+                            </span>
                         </div>
                     )}
 
@@ -808,6 +1045,31 @@ export default function LiveSessionClient() {
                         </div>
                     )}
                 </div>
+
+                {canPublishAudio && !showControls && (
+                    <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 pointer-events-auto">
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                void handleToggleMute();
+                            }}
+                            className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
+                                isAudioEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white backdrop-blur-sm"
+                            }`}
+                        >
+                            {isAudioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                void handleLeave();
+                            }}
+                            className="w-12 h-12 rounded-full bg-[#dc2626] text-white flex items-center justify-center transition-colors hover:bg-[#b91c1c]"
+                        >
+                            <PhoneOff className="w-5 h-5" />
+                        </button>
+                    </div>
+                )}
             </div>
         );
     }
@@ -815,9 +1077,15 @@ export default function LiveSessionClient() {
     // ─── Portrait layout (unchanged) ──────────────────────────────────────
 
     return (
-        <div className="flex flex-col h-[100dvh] bg-[#fffbe7] overflow-hidden">
+        <div
+            className="flex w-full max-w-full flex-col overflow-hidden bg-[#fffbe7]"
+            style={liveSessionViewportStyle}
+        >
             {/* Header */}
-            <div className="flex items-center gap-3 px-4 py-3 shrink-0">
+            <div
+                className="flex shrink-0 items-center gap-3 px-4 pb-3"
+                style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+            >
                 <button
                     onClick={handleLeave}
                     className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#414141] shadow-sm ring-1 ring-[#e5e7eb] hover:bg-[#f9fafb] transition-colors"
@@ -835,7 +1103,9 @@ export default function LiveSessionClient() {
             {currentRole === "viewer-on-stage" && (
                 <div className="flex items-center gap-2 px-4 py-2 bg-[#f59e0b] shrink-0">
                     <Mic className="w-4 h-4 text-white" />
-                    <span className="text-sm font-semibold text-white">You&apos;re on stage — Mic active</span>
+                    <span className="text-sm font-semibold text-white">
+                        {isAudioEnabled ? "You&apos;re on stage — Mic active" : "You&apos;re on stage — turn on your mic to speak"}
+                    </span>
                 </div>
             )}
 
@@ -950,6 +1220,55 @@ export default function LiveSessionClient() {
                     <PhoneOff className="w-5 h-5" />
                 </button>
             </div>
+
+            <Dialog open={Boolean(autoplayError)}>
+                <DialogContent className="max-w-md rounded-3xl border-[#ece5c8]">
+                    <DialogHeader>
+                        <DialogTitle>Restore class audio</DialogTitle>
+                        <DialogDescription>
+                            iPhone and iPad browsers sometimes block newly joined audio tracks until you confirm playback.
+                            Tap restore to hear students who come on stage.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <button
+                            onClick={handleRestoreAudio}
+                            className="rounded-[12px] bg-[#414141] px-4 py-2.5 font-semibold text-white transition-colors hover:bg-[#212121]"
+                        >
+                            Restore audio
+                        </button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={showMicPermissionDialog} onOpenChange={setShowMicPermissionDialog}>
+                <DialogContent className="max-w-md rounded-3xl border-[#ece5c8]">
+                    <DialogHeader>
+                        <DialogTitle>Allow microphone access</DialogTitle>
+                        <DialogDescription>
+                            {micPermissionMessage}
+                            {micPermissionNeedsSettings
+                                ? " If you already denied access, reopen browser or site settings and allow the microphone."
+                                : ""}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <button
+                            onClick={() => setShowMicPermissionDialog(false)}
+                            className="rounded-[12px] border border-[#d6d3c8] px-4 py-2.5 font-semibold text-[#414141] transition-colors hover:bg-[#f8f6ef]"
+                        >
+                            Not now
+                        </button>
+                        <button
+                            onClick={handleRetryMicrophonePermission}
+                            disabled={isRetryingMicPermission}
+                            className="rounded-[12px] bg-[#414141] px-4 py-2.5 font-semibold text-white transition-colors hover:bg-[#212121] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            {isRetryingMicPermission ? "Checking..." : "Try again"}
+                        </button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

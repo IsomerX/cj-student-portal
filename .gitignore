@@ -6,8 +6,7 @@ coverage
 .env
 .env.local
 .env.*.local
-pnpm-lock.yaml
-package-lock.json
 yarn.lock
 *.tsbuildinfo
 
+.vercel
