@@ -21,6 +21,13 @@ interface AuthResponseBody {
   alreadyVerified?: boolean;
 }
 
+interface ProfileUpdateResponseBody {
+  success?: boolean;
+  message?: string;
+  error?: string;
+  data?: AuthUser;
+}
+
 export class AuthApiError extends Error {
   status: number | null;
   code: string | null;
@@ -144,6 +151,20 @@ export async function verifyEmailOtp(
 export async function fetchProfile(): Promise<AuthUser> {
   try {
     return await fetchProfileWithHeaders();
+  } catch (error) {
+    throw toAuthApiError(error);
+  }
+}
+
+export async function updateUserName(userId: string, name: string): Promise<AuthUser | null> {
+  try {
+    const response = await apiClient.put<ProfileUpdateResponseBody>(`/users/${userId}`, { name });
+
+    if (response.data.success === false) {
+      throw new AuthApiError(response.data.error || response.data.message || "Failed to update profile.");
+    }
+
+    return response.data.data ?? null;
   } catch (error) {
     throw toAuthApiError(error);
   }

@@ -297,7 +297,7 @@ export default function DashboardPage() {
     setQuoteIndex(Math.floor(Math.random() * DASHBOARD_QUOTES.length));
   }, []);
 
-  const handleNameComplete = (name: string) => {
+  const handleNameComplete = () => {
     setShowNameSetup(false);
     // Refetch profile to get updated data
     profileQuery.refetch();
@@ -342,7 +342,11 @@ export default function DashboardPage() {
 
   return (
     <>
-      <NameSetupDialog open={showNameSetup} onComplete={handleNameComplete} />
+      <NameSetupDialog
+        open={showNameSetup}
+        userId={typeof user?.id === "string" ? user.id : null}
+        onComplete={handleNameComplete}
+      />
       <main className="min-h-[100dvh] overflow-x-hidden bg-[#f0f2f5] pb-[calc(env(safe-area-inset-bottom)+6.5rem)] sm:pb-12">
         <section
           className="relative overflow-hidden rounded-b-[32px] bg-[#283618] px-3 pb-20 pt-5 shadow-lg sm:rounded-b-[40px] sm:px-6 sm:pb-28 sm:pt-6 lg:px-8"

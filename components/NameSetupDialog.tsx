@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { isAxiosError } from "axios";
 import {
   Dialog,
   DialogContent,
@@ -13,14 +13,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, User } from "lucide-react";
-import { apiClient } from "@/lib/api/config";
+import { updateUserName } from "@/lib/api/auth";
 
 interface NameSetupDialogProps {
   open: boolean;
+  userId: string | null;
   onComplete: (name: string) => void;
 }
 
-export function NameSetupDialog({ open, onComplete }: NameSetupDialogProps) {
+export function NameSetupDialog({ open, userId, onComplete }: NameSetupDialogProps) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,18 +45,19 @@ export function NameSetupDialog({ open, onComplete }: NameSetupDialogProps) {
     setError("");
 
     try {
-      const response = await apiClient.patch("/auth/profile", {
-        name: fullName,
-      });
-
-      if (response.data.success) {
-        onComplete(fullName);
-      } else {
-        setError(response.data.error || "Failed to update name");
+      if (!userId) {
+        setError("Profile could not be loaded. Please refresh and try again.");
+        return;
       }
-    } catch (err: any) {
+
+      await updateUserName(userId, fullName);
+      onComplete(fullName);
+    } catch (err: unknown) {
       console.error("Failed to update name:", err);
-      setError(err.response?.data?.error || "Failed to update name. Please try again.");
+      const errorMessage = isAxiosError<{ error?: string }>(err)
+        ? (err.response?.data?.error ?? "Failed to update name. Please try again.")
+        : "Failed to update name. Please try again.";
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -68,7 +70,7 @@ export function NameSetupDialog({ open, onComplete }: NameSetupDialogProps) {
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50">
             <User className="h-6 w-6 text-emerald-600" />
           </div>
-          <DialogTitle className="text-center">Welcome! Let's get started</DialogTitle>
+          <DialogTitle className="text-center">Welcome! Let&apos;s get started</DialogTitle>
           <DialogDescription className="text-center">
             Please enter your full name to continue
           </DialogDescription>
@@ -103,7 +105,7 @@ export function NameSetupDialog({ open, onComplete }: NameSetupDialogProps) {
           <Button
             type="submit"
             className="w-full"
-            disabled={isSubmitting || !firstName.trim() || !lastName.trim()}
+            disabled={isSubmitting || !userId || !firstName.trim() || !lastName.trim()}
           >
             {isSubmitting ? (
               <>

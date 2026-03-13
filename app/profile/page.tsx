@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Calendar, Check, AlertCircle, Loader2 } from "lucide-react";
+import { isAxiosError } from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAuthProfileQuery } from "@/hooks/use-auth";
 import { getStoredToken } from "@/lib/auth/storage";
-import { apiClient } from "@/lib/api/config";
+import { updateUserName } from "@/lib/api/auth";
 import { format, differenceInDays } from "date-fns";
 
 export default function ProfilePage() {
@@ -32,6 +33,8 @@ export default function ProfilePage() {
   const [success, setSuccess] = useState("");
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [daysUntilNextChange, setDaysUntilNextChange] = useState<number | null>(null);
+
+  const buildFullName = () => [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
 
   useEffect(() => {
     if (!token) {
@@ -68,17 +71,12 @@ export default function ProfilePage() {
   }, [profileQuery.data]);
 
   const handleSubmit = async () => {
+    const newName = buildFullName();
+
     if (!firstName.trim()) {
       setError("Please enter your first name");
       return;
     }
-
-    if (!lastName.trim()) {
-      setError("Please enter your last name");
-      return;
-    }
-
-    const newName = `${firstName.trim()} ${lastName.trim()}`;
 
     if (newName === profileQuery.data?.name) {
       setError("New name is the same as current name");
@@ -89,7 +87,13 @@ export default function ProfilePage() {
   };
 
   const handleConfirmChange = async () => {
-    const newName = `${firstName.trim()} ${lastName.trim()}`;
+    const newName = buildFullName();
+    const userId = profileQuery.data?.id;
+
+    if (!userId) {
+      setError("Profile could not be loaded. Please refresh and try again.");
+      return;
+    }
 
     setIsSubmitting(true);
     setError("");
@@ -97,24 +101,19 @@ export default function ProfilePage() {
     setShowConfirmDialog(false);
 
     try {
-      const response = await apiClient.patch("/auth/profile", {
-        name: newName,
-      });
+      await updateUserName(userId, newName);
+      setSuccess("Name updated successfully!");
+      profileQuery.refetch();
 
-      if (response.data.success) {
-        setSuccess("Name updated successfully!");
-        profileQuery.refetch();
-
-        // Reset after 3 seconds
-        setTimeout(() => {
-          setSuccess("");
-        }, 3000);
-      } else {
-        setError(response.data.error || "Failed to update name");
-      }
-    } catch (err: any) {
+      // Reset after 3 seconds
+      setTimeout(() => {
+        setSuccess("");
+      }, 3000);
+    } catch (err: unknown) {
       console.error("Failed to update name:", err);
-      const errorMessage = err.response?.data?.error || "Failed to update name. Please try again.";
+      const errorMessage = isAxiosError<{ error?: string }>(err)
+        ? (err.response?.data?.error ?? "Failed to update name. Please try again.")
+        : "Failed to update name. Please try again.";
       setError(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -138,34 +137,41 @@ export default function ProfilePage() {
   const nextChangeDate = user?.nameLastChangedAt
     ? new Date(new Date(user.nameLastChangedAt as string).getTime() + 15 * 24 * 60 * 60 * 1000)
     : null;
-  const newFullName = `${firstName.trim()} ${lastName.trim()}`;
+  const newFullName = buildFullName();
 
   return (
     <>
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Name Change</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to change your name to <strong>{newFullName}</strong>?
-              {canChangeName && " You won't be able to change it again for 15 days."}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowConfirmDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmChange} disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                "Confirm"
-              )}
-            </Button>
-          </DialogFooter>
+        <DialogContent className="top-[50%] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-[22rem] translate-y-[-50%] gap-0 overflow-hidden rounded-2xl border-[#ece5c8] p-0 sm:max-w-[24rem]">
+          <div className="p-5 sm:p-6">
+            <DialogHeader className="space-y-2 pr-8 text-center sm:text-center">
+              <DialogTitle className="text-xl">Confirm Name Change</DialogTitle>
+              <DialogDescription className="text-sm leading-6">
+                Are you sure you want to change your name to{" "}
+                <span className="font-semibold text-[#283618]">{newFullName}</span>?
+                {canChangeName && " You won't be able to change it again for 15 days."}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="mt-5 flex-col gap-2 sm:flex-col sm:space-x-0">
+              <Button onClick={handleConfirmChange} disabled={isSubmitting} className="w-full">
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Confirm"
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowConfirmDialog(false)}
+                className="w-full"
+              >
+                Cancel
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -278,11 +284,11 @@ export default function ProfilePage() {
 
               <div className="space-y-2">
                 <Label htmlFor="lastName">
-                  {user?.name ? "Last Name" : "Enter Your Last Name"}
+                  {user?.name ? "Last Name (Optional)" : "Enter Your Last Name (Optional)"}
                 </Label>
                 <Input
                   id="lastName"
-                  placeholder="Enter your last name"
+                  placeholder="Enter your last name (optional)"
                   value={lastName}
                   onChange={(e) => {
                     setLastName(e.target.value);
@@ -299,7 +305,6 @@ export default function ProfilePage() {
                   !canChangeName ||
                   isSubmitting ||
                   !firstName.trim() ||
-                  !lastName.trim() ||
                   newFullName === user?.name
                 }
                 className="w-full"
