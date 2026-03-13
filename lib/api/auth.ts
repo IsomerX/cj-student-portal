@@ -1,6 +1,12 @@
 import { isAxiosError } from "axios";
 
-import { type AuthSession, type AuthUser, type LoginPayload, type VerifyEmailOtpPayload } from "@/lib/auth/types";
+import {
+  type AuthSession,
+  type AuthUser,
+  type FirebaseLoginPayload,
+  type LoginPayload,
+  type VerifyEmailOtpPayload,
+} from "@/lib/auth/types";
 import { apiClient } from "@/lib/api/config";
 
 interface AuthResponseBody {
@@ -79,6 +85,25 @@ export async function login(payload: LoginPayload): Promise<AuthSession> {
     const response = await apiClient.post<AuthResponseBody>("/auth/login", requestBody, {
       headers: appPlatform ? { "X-App-Platform": appPlatform } : undefined,
     });
+    const token = getTokenFromBody(response.data);
+
+    if (!token) {
+      throw new AuthApiError("No token returned from server.");
+    }
+
+    const user =
+      response.data.user ??
+      (await fetchProfileWithHeaders({ Authorization: `Bearer ${token}` }));
+
+    return { token, user };
+  } catch (error) {
+    throw toAuthApiError(error);
+  }
+}
+
+export async function firebaseLogin(payload: FirebaseLoginPayload): Promise<AuthSession> {
+  try {
+    const response = await apiClient.post<AuthResponseBody>("/auth/firebase-login", payload);
     const token = getTokenFromBody(response.data);
 
     if (!token) {
