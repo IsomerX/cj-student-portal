@@ -2,9 +2,19 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { type LoginPayload, type VerifyEmailOtpPayload } from "@/lib/auth/types";
+import {
+  type FirebaseLoginPayload,
+  type LoginPayload,
+  type VerifyEmailOtpPayload,
+} from "@/lib/auth/types";
 import { clearSession, getStoredToken, persistSession } from "@/lib/auth/storage";
-import { fetchProfile, login, logout, verifyEmailOtp } from "@/lib/api/auth";
+import {
+  fetchProfile,
+  firebaseLogin,
+  login,
+  logout,
+  verifyEmailOtp,
+} from "@/lib/api/auth";
 import { authQueryKeys, dashboardQueryKeys } from "@/lib/query-keys";
 
 export function useAuthProfileQuery() {
@@ -38,6 +48,21 @@ export function useVerifyEmailOtpMutation() {
 
   return useMutation({
     mutationFn: (payload: VerifyEmailOtpPayload) => verifyEmailOtp(payload),
+    onSuccess: (session) => {
+      persistSession(session);
+      queryClient.removeQueries({ queryKey: dashboardQueryKeys.all });
+      if (session.user) {
+        queryClient.setQueryData(authQueryKeys.profile(), session.user);
+      }
+    },
+  });
+}
+
+export function useFirebaseLoginMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: FirebaseLoginPayload) => firebaseLogin(payload),
     onSuccess: (session) => {
       persistSession(session);
       queryClient.removeQueries({ queryKey: dashboardQueryKeys.all });
