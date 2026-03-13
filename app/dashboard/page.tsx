@@ -419,7 +419,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-2">
-              <h1 className="break-words text-[clamp(1.75rem,8vw,2.75rem)] font-extrabold leading-tight tracking-tight text-white">
+              <h1 className="break-words text-[clamp(1.75rem,8vw,2.75rem)] font-extrabold leading-[1.2] tracking-tight text-white">
                 {greetingLabel}, <span className="text-[#cadab2]">{studentName}</span>.
               </h1>
               <p className="max-w-[34rem] text-sm font-medium leading-relaxed text-white/80 sm:text-base">
