@@ -412,10 +412,32 @@ export default function LiveSessionClient() {
         const previousRootOverflow = root.style.overflow;
         const previousBodyOverflow = body.style.overflow;
         const previousBodyOverscroll = body.style.overscrollBehavior;
+        const previousBodyTouchAction = body.style.touchAction;
 
         root.style.overflow = "hidden";
         body.style.overflow = "hidden";
         body.style.overscrollBehavior = "none";
+        body.style.touchAction = "manipulation";
+
+        const getStableViewportHeight = () => {
+            const fallbackHeight = Math.round(
+                Math.max(window.innerHeight, document.documentElement.clientHeight)
+            );
+            const visualViewport = window.visualViewport;
+
+            if (!visualViewport) {
+                return fallbackHeight;
+            }
+
+            const visualViewportScale = visualViewport.scale ?? 1;
+
+            // Ignore transient scaled viewport readings during iOS rotation.
+            if (Math.abs(visualViewportScale - 1) > 0.02) {
+                return fallbackHeight;
+            }
+
+            return Math.round(Math.max(fallbackHeight, visualViewport.height));
+        };
 
         const syncViewportHeight = () => {
             if (viewportSyncFrameRef.current !== null) {
@@ -423,9 +445,8 @@ export default function LiveSessionClient() {
             }
 
             viewportSyncFrameRef.current = window.requestAnimationFrame(() => {
-                const nextHeight = Math.round(window.visualViewport?.height ?? window.innerHeight);
+                const nextHeight = getStableViewportHeight();
                 setViewportHeight((prev) => (prev === nextHeight ? prev : nextHeight));
-                window.scrollTo(0, 0);
             });
         };
 
@@ -433,8 +454,9 @@ export default function LiveSessionClient() {
             syncViewportHeight();
             viewportSyncTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
             viewportSyncTimeoutsRef.current = [
-                window.setTimeout(syncViewportHeight, 80),
-                window.setTimeout(syncViewportHeight, 240),
+                window.setTimeout(syncViewportHeight, 120),
+                window.setTimeout(syncViewportHeight, 320),
+                window.setTimeout(syncViewportHeight, 650),
             ];
         };
 
@@ -443,13 +465,11 @@ export default function LiveSessionClient() {
         window.addEventListener("resize", syncViewportHeight);
         window.addEventListener("orientationchange", scheduleViewportSettling);
         window.visualViewport?.addEventListener("resize", scheduleViewportSettling);
-        window.visualViewport?.addEventListener("scroll", syncViewportHeight);
 
         return () => {
             window.removeEventListener("resize", syncViewportHeight);
             window.removeEventListener("orientationchange", scheduleViewportSettling);
             window.visualViewport?.removeEventListener("resize", scheduleViewportSettling);
-            window.visualViewport?.removeEventListener("scroll", syncViewportHeight);
 
             if (viewportSyncFrameRef.current !== null) {
                 window.cancelAnimationFrame(viewportSyncFrameRef.current);
@@ -461,6 +481,7 @@ export default function LiveSessionClient() {
             root.style.overflow = previousRootOverflow;
             body.style.overflow = previousBodyOverflow;
             body.style.overscrollBehavior = previousBodyOverscroll;
+            body.style.touchAction = previousBodyTouchAction;
         };
     }, []);
 
@@ -755,14 +776,17 @@ export default function LiveSessionClient() {
                 className="flex min-h-screen w-full max-w-full flex-col items-center justify-center overflow-hidden bg-[#fffbe7] p-5"
                 style={liveSessionViewportStyle}
             >
-                <div className="absolute top-0 left-0 w-full p-4 sm:p-6 flex items-center gap-4">
+                <div
+                    className="absolute left-0 right-0 top-0 flex items-center gap-4 px-4 pb-4 sm:px-6 sm:pb-6"
+                    style={{ paddingTop: "max(1rem, calc(env(safe-area-inset-top) + 0.5rem))" }}
+                >
                     <button
                         onClick={() => router.push("/live")}
                         className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#414141] shadow-sm ring-1 ring-[#e5e7eb] transition-colors hover:bg-[#f9fafb]"
                     >
                         <ArrowLeft className="h-5 w-5" />
                     </button>
-                    <span className="font-bold text-[#414141]">{title}</span>
+                    <span className="min-w-0 truncate font-bold text-[#414141]">{title}</span>
                 </div>
 
                 <div className="flex flex-col items-center max-w-sm text-center">
@@ -1058,7 +1082,10 @@ export default function LiveSessionClient() {
             style={liveSessionViewportStyle}
         >
             {/* Header */}
-            <div className="flex items-center gap-3 px-4 py-3 shrink-0">
+            <div
+                className="flex shrink-0 items-center gap-3 px-4 pb-3"
+                style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+            >
                 <button
                     onClick={handleLeave}
                     className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#414141] shadow-sm ring-1 ring-[#e5e7eb] hover:bg-[#f9fafb] transition-colors"

@@ -1,21 +1,16 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { format, isToday, isTomorrow } from "date-fns";
 import {
     GraduationCap,
-    Home,
     LogOut,
     Video,
     Clock,
     Users,
     ChevronRight,
-    Brain,
-    CircleHelp,
-    BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/api/auth";
@@ -64,8 +59,8 @@ function LiveClassCard({
                 isLive && "ring-[#fecaca] hover:ring-[#fca5a5]"
             )}
         >
-            <div className="flex w-full items-start justify-between">
-                <div className="flex flex-1 items-start gap-3">
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
                     <div
                         className={cn(
                             "flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]",
@@ -86,7 +81,7 @@ function LiveClassCard({
                         </p>
                     </div>
                 </div>
-                <div className="flex flex-col items-end gap-2 shrink-0 ml-3">
+                <div className="ml-0 flex shrink-0 flex-row items-center gap-2 self-start sm:ml-3 sm:flex-col sm:items-end sm:self-auto">
                     <span
                         className="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em]"
                         style={{ backgroundColor: status.bg, color: status.text }}
@@ -102,14 +97,14 @@ function LiveClassCard({
                 </div>
             </div>
 
-            <div className="mt-4 flex items-center gap-4 border-t border-[#f3f4f6] pt-4">
-                <div className="flex items-center gap-1.5 text-xs text-[#737373]">
+            <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-[#f3f4f6] pt-4">
+                <div className="flex min-w-0 items-center gap-1.5 text-xs text-[#737373]">
                     <Clock className="h-3.5 w-3.5" />
-                    <span>
+                    <span className="break-words">
                         {formatClassDate(liveClass.startAt)} at {formatClassTime(liveClass.startAt)}
                     </span>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-[#737373]">
+                <div className="flex min-w-0 items-center gap-1.5 text-xs text-[#737373]">
                     <Users className="h-3.5 w-3.5" />
                     <span>{liveClass._count?.attendance || 0} attended</span>
                 </div>
@@ -146,9 +141,12 @@ export default function LiveClassesPage() {
 
     return (
         <>
-            <main className="min-h-[100dvh] bg-[#f0f2f5] pb-36 sm:pb-12">
+            <main className="min-h-[100dvh] overflow-x-hidden bg-[#f0f2f5] pb-36 sm:pb-12">
                 {/* Header */}
-                <section className="relative rounded-b-[32px] bg-[#283618] px-3 pb-8 pt-5 shadow-lg sm:rounded-b-[40px] sm:px-6 sm:pb-10 sm:pt-6 lg:px-8 overflow-hidden">
+                <section
+                    className="relative rounded-b-[32px] bg-[#283618] px-3 pb-8 pt-5 shadow-lg sm:rounded-b-[40px] sm:px-6 sm:pb-10 sm:pt-6 lg:px-8 overflow-hidden"
+                    style={{ paddingTop: "max(1.25rem, calc(env(safe-area-inset-top) + 0.25rem))" }}
+                >
                     <div className="absolute -left-10 top-0 h-48 w-48 rounded-full bg-white/5 blur-2xl" />
                     <div className="absolute right-0 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-[#cadab2]/10 blur-3xl lg:translate-x-1/4" />
 
