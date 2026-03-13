@@ -32,12 +32,6 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       {
-        name: "Dashboard",
-        short_name: "Home",
-        description: "Open the CJ student dashboard.",
-        url: "/dashboard",
-      },
-      {
         name: "Live Classes",
         short_name: "Live",
         description: "Jump into the CJ live class list.",
@@ -50,10 +44,10 @@ export default function manifest(): MetadataRoute.Manifest {
         url: "/live/recordings",
       },
       {
-        name: "Profile",
-        short_name: "Profile",
-        description: "Manage your profile and settings.",
-        url: "/profile",
+        name: "Dashboard",
+        short_name: "Home",
+        description: "Open the CJ student dashboard.",
+        url: "/dashboard",
       },
     ],
   };
