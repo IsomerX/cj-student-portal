@@ -352,7 +352,7 @@ export default function DashboardPage() {
         <div className="absolute right-0 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-[#cadab2]/10 blur-3xl lg:translate-x-1/4" />
 
         <div className="relative mx-auto max-w-6xl">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-row items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2.5">
               <button
                 onClick={() => router.push("/profile")}
@@ -370,7 +370,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 self-end sm:self-auto">
+            <div className="flex items-center justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
