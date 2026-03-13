@@ -14,6 +14,7 @@ import {
     selectIsLocalVideoEnabled,
     selectRoomState,
     selectIsPeerAudioEnabled,
+    selectDominantSpeaker,
     HMSNotificationTypes,
 } from "@100mslive/react-sdk";
 import { HMSRoomState } from "@100mslive/react-sdk";
@@ -70,14 +71,14 @@ const EMOJI_LIFETIME_MS = 5200;
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function VideoTile({ peer, isLocal, noRound }: { peer: HMSPeer; isLocal?: boolean; noRound?: boolean }) {
+function VideoTile({ peer, isLocal, noRound, isActiveSpeaker }: { peer: HMSPeer; isLocal?: boolean; noRound?: boolean; isActiveSpeaker?: boolean }) {
     const { videoRef } = useVideo({ trackId: peer.videoTrack });
     const isAudioEnabled = useHMSStore(selectIsPeerAudioEnabled(peer.id));
     const hasVideo = !!peer.videoTrack;
     const initials = (peer.name || "?").charAt(0).toUpperCase();
 
     return (
-        <div className={`relative w-full h-full bg-gray-900 overflow-hidden ${noRound ? "" : "rounded-2xl"} ${isLocal ? "ring-2 ring-[#414141]" : ""}`}>
+        <div className={`relative w-full h-full bg-gray-900 overflow-hidden transition-shadow duration-300 ${noRound ? "" : "rounded-2xl"} ${isActiveSpeaker ? "ring-[3px] ring-green-400 shadow-[0_0_16px_rgba(74,222,128,0.4)]" : isLocal ? "ring-2 ring-[#414141]" : ""}`}>
             <video
                 ref={videoRef}
                 autoPlay
@@ -233,6 +234,7 @@ export default function LiveSessionClient() {
     const isAudioEnabled = useHMSStore(selectIsLocalAudioEnabled);
     const isVideoEnabled = useHMSStore(selectIsLocalVideoEnabled);
     const roomState = useHMSStore(selectRoomState);
+    const dominantSpeaker = useHMSStore(selectDominantSpeaker);
     const notification = useHMSNotifications();
     const { error: autoplayError, unblockAudio, resetError: resetAutoplayError } = useAutoplayError();
 
@@ -912,7 +914,7 @@ export default function LiveSessionClient() {
                 </div>
             ) : broadcasterPeer ? (
                 <div className={`w-full h-full overflow-hidden bg-[#f5f0dc] ${noRound ? "" : "rounded-2xl"}`}>
-                    <VideoTile peer={broadcasterPeer} noRound={noRound} />
+                    <VideoTile peer={broadcasterPeer} noRound={noRound} isActiveSpeaker={dominantSpeaker?.id === broadcasterPeer.id} />
                 </div>
             ) : (
                 <div className={`w-full h-full bg-[#f5f0dc] flex items-center justify-center ${noRound ? "" : "rounded-2xl"}`}>
@@ -1161,13 +1163,19 @@ export default function LiveSessionClient() {
                 )}
             </div>
 
-            {/* Participant strip */}
+            {/* Participant strip — active speaker first */}
             {participantPeers.length > 0 && (
                 <div className="shrink-0 px-3 pb-2">
                     <div className="flex gap-2 overflow-x-auto scrollbar-none py-1">
-                        {participantPeers.map((peer) => (
+                        {[...participantPeers].sort((a, b) => {
+                            if (dominantSpeaker) {
+                                if (a.id === dominantSpeaker.id && b.id !== dominantSpeaker.id) return -1;
+                                if (b.id === dominantSpeaker.id && a.id !== dominantSpeaker.id) return 1;
+                            }
+                            return 0;
+                        }).map((peer) => (
                             <div key={peer.id} className="w-20 h-20 shrink-0">
-                                <VideoTile peer={peer} />
+                                <VideoTile peer={peer} isActiveSpeaker={dominantSpeaker?.id === peer.id} />
                             </div>
                         ))}
                     </div>
