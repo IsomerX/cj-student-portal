@@ -13,6 +13,7 @@ import {
   LogOut,
   RefreshCw,
   Sparkles,
+  User,
   Video,
   type LucideIcon,
 } from "lucide-react";
@@ -24,6 +25,7 @@ import { useLiveClassesQuery, useRecordingsQuery } from "@/hooks/use-live-classe
 import { clearSession, getStoredToken } from "@/lib/auth/storage";
 import type { LiveClass } from "@/lib/api/live-classes";
 import { cn } from "@/lib/utils";
+import { NameSetupDialog } from "@/components/NameSetupDialog";
 
 type ModuleShortcut = {
   title: string;
@@ -75,7 +77,7 @@ const DASHBOARD_QUOTES = [
 ];
 
 function getFirstName(name?: string | null) {
-  if (!name) return "Student";
+  if (!name || !name.trim()) return "Student";
 
   const firstName = name.trim().split(/\s+/)[0];
   return firstName || "Student";
@@ -241,12 +243,20 @@ export default function DashboardPage() {
   const liveClassesQuery = useLiveClassesQuery();
   const batchesQuery = useMyBatchesQuery();
   const logoutMutation = useLogoutMutation();
+  const [showNameSetup, setShowNameSetup] = React.useState(false);
 
   React.useEffect(() => {
     if (!token) {
       router.replace("/login");
     }
   }, [router, token]);
+
+  // Check if user needs to set their name
+  React.useEffect(() => {
+    if (profileQuery.data && !profileQuery.data.name?.trim()) {
+      setShowNameSetup(true);
+    }
+  }, [profileQuery.data]);
 
   React.useEffect(() => {
     if (typeof window === "undefined") {
@@ -288,6 +298,12 @@ export default function DashboardPage() {
     setQuoteIndex(Math.floor(Math.random() * DASHBOARD_QUOTES.length));
   }, []);
 
+  const handleNameComplete = (name: string) => {
+    setShowNameSetup(false);
+    // Refetch profile to get updated data
+    profileQuery.refetch();
+  };
+
   const handleLogout = async () => {
     await logoutMutation.mutateAsync();
     router.replace("/login");
@@ -326,11 +342,13 @@ export default function DashboardPage() {
     liveClassesQuery.error instanceof Error ? liveClassesQuery.error.message : null;
 
   return (
-    <main className="min-h-[100dvh] overflow-x-hidden bg-[#f0f2f5] pb-[calc(env(safe-area-inset-bottom)+6.5rem)] sm:pb-12">
-      <section
-        className="relative overflow-hidden rounded-b-[32px] bg-[#283618] px-3 pb-20 pt-5 shadow-lg sm:rounded-b-[40px] sm:px-6 sm:pb-28 sm:pt-6 lg:px-8"
-        style={{ paddingTop: "max(1.5rem, calc(env(safe-area-inset-top) + 0.75rem))" }}
-      >
+    <>
+      <NameSetupDialog open={showNameSetup} onComplete={handleNameComplete} />
+      <main className="min-h-[100dvh] overflow-x-hidden bg-[#f0f2f5] pb-[calc(env(safe-area-inset-bottom)+6.5rem)] sm:pb-12">
+        <section
+          className="relative overflow-hidden rounded-b-[32px] bg-[#283618] px-3 pb-20 pt-5 shadow-lg sm:rounded-b-[40px] sm:px-6 sm:pb-28 sm:pt-6 lg:px-8"
+          style={{ paddingTop: "max(1.5rem, calc(env(safe-area-inset-top) + 0.75rem))" }}
+        >
         <div className="absolute -left-10 top-0 h-48 w-48 rounded-full bg-white/5 blur-2xl" />
         <div className="absolute right-0 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-[#cadab2]/10 blur-3xl lg:translate-x-1/4" />
 
@@ -367,6 +385,16 @@ export default function DashboardPage() {
                   )}
                 />
                 <span className="hidden sm:ml-2 sm:inline">Refresh</span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => router.push("/profile")}
+                className="h-9 rounded-[12px] border-0 bg-white/10 px-3 text-white backdrop-blur-md hover:bg-white/20 hover:text-white"
+              >
+                <User className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Profile</span>
               </Button>
               <Button
                 type="button"
@@ -475,6 +503,7 @@ export default function DashboardPage() {
           </section>
         </div>
       </div>
-    </main>
+      </main>
+    </>
   );
 }
