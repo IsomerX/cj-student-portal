@@ -57,7 +57,7 @@ export default function ProfilePage() {
 
       // Calculate days until next name change
       if (profileQuery.data.nameLastChangedAt) {
-        const lastChanged = new Date(profileQuery.data.nameLastChangedAt);
+        const lastChanged = new Date(profileQuery.data.nameLastChangedAt as string);
         const daysSinceChange = differenceInDays(new Date(), lastChanged);
         const daysRemaining = 15 - daysSinceChange;
         setDaysUntilNextChange(daysRemaining > 0 ? daysRemaining : 0);
@@ -136,7 +136,7 @@ export default function ProfilePage() {
   const user = profileQuery.data;
   const canChangeName = daysUntilNextChange === null || daysUntilNextChange === 0;
   const nextChangeDate = user?.nameLastChangedAt
-    ? new Date(new Date(user.nameLastChangedAt).getTime() + 15 * 24 * 60 * 60 * 1000)
+    ? new Date(new Date(user.nameLastChangedAt as string).getTime() + 15 * 24 * 60 * 60 * 1000)
     : null;
   const newFullName = `${firstName.trim()} ${lastName.trim()}`;
 
@@ -206,14 +206,14 @@ export default function ProfilePage() {
               </div>
 
               {/* Last Changed */}
-              {user?.nameLastChangedAt && (
+              {!!user?.nameLastChangedAt && (
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
                     Last Changed
                   </Label>
                   <div className="rounded-md border bg-muted px-3 py-2 text-sm">
-                    {format(new Date(user.nameLastChangedAt), "PPP")}
+                    {format(new Date(user.nameLastChangedAt as string), "PPP")}
                   </div>
                 </div>
               )}
