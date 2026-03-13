@@ -84,9 +84,40 @@ export default function LoginPage() {
   const [confirmationResult, setConfirmationResult] = React.useState<ConfirmationResult | null>(null);
   const [verifiedPhoneNumber, setVerifiedPhoneNumber] = React.useState<string | null>(null);
 
+  const resetViewportPosition = React.useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+
+    const scrollToTop = () => window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    scrollToTop();
+    window.requestAnimationFrame(scrollToTop);
+    window.setTimeout(scrollToTop, 120);
+  }, []);
+
+  const navigateToDashboard = React.useCallback(() => {
+    if (typeof window === "undefined") {
+      router.push("/dashboard");
+      return;
+    }
+
+    resetViewportPosition();
+    window.requestAnimationFrame(() => {
+      router.push("/dashboard");
+    });
+  }, [resetViewportPosition, router]);
+
   React.useEffect(() => {
     setIsMobileBrowser(detectMobileBrowser());
   }, []);
+
+  React.useEffect(() => {
+    resetViewportPosition();
+  }, [resetViewportPosition]);
 
   React.useEffect(() => {
     if (getStoredToken()) {
@@ -141,7 +172,7 @@ export default function LoginPage() {
     onSuccess: (session) => {
       if (session) {
         persistSession(session);
-        router.push("/dashboard");
+        navigateToDashboard();
         return;
       }
       setOtp(Array(8).fill(""));
@@ -178,7 +209,7 @@ export default function LoginPage() {
         recaptchaToken: undefined,
         appPlatform,
       });
-      router.push("/dashboard");
+      navigateToDashboard();
     } catch (error) {
       const authError = toAuthApiError(error);
       if (authError.status === 403 && authError.code === "EMAIL_VERIFICATION_REQUIRED") {
@@ -203,7 +234,7 @@ export default function LoginPage() {
     try {
       await verifyOtpMutation.mutateAsync({ email, otp: otpValue });
       setIsOtpDialogOpen(false);
-      router.push("/dashboard");
+      navigateToDashboard();
     } catch (error) {
       setOtpError(toAuthApiError(error).message);
     }
@@ -268,7 +299,7 @@ export default function LoginPage() {
         });
 
         await signOutFirebaseUser();
-        router.push("/dashboard");
+        navigateToDashboard();
       } catch (backendError) {
         setPhoneError(toAuthApiError(backendError).message);
         resetPhoneFlow();
@@ -282,7 +313,7 @@ export default function LoginPage() {
 
   return (
     <>
-      <main className="min-h-[100dvh] flex items-center justify-center bg-[#f0f2e8] px-5 py-10 relative overflow-hidden selection:bg-[#283618]/20">
+      <main className="relative flex min-h-[100dvh] items-start justify-center overflow-y-auto overflow-x-hidden bg-[#f0f2e8] px-5 pb-[max(2rem,calc(env(safe-area-inset-bottom)+1rem))] pt-[max(2.25rem,calc(env(safe-area-inset-top)+1.25rem))] selection:bg-[#283618]/20 sm:items-center sm:py-10">
         <div
           className="absolute inset-0 pointer-events-none opacity-[0.04] -rotate-[15deg] scale-[1.3]"
           style={{
@@ -296,7 +327,7 @@ export default function LoginPage() {
           }}
         />
 
-        <div className="relative z-10 w-full max-w-[340px]">
+        <div className="relative z-10 my-auto w-full max-w-[340px]">
           <h1 className="text-center text-[1.75rem] font-extrabold tracking-tight text-[#212121] mb-7">
             SCHOOL DOST
           </h1>
