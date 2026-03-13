@@ -64,9 +64,8 @@ export default function LoginPage() {
   const isFirebasePhoneTestingEnabled = isFirebasePhoneAuthTestingEnabled();
   const [loginMode, setLoginMode] = React.useState<LoginMode>(isPhoneLoginEnabled ? "phone" : "email");
   const [isMobileBrowser, setIsMobileBrowser] = React.useState<boolean | null>(null);
-  const recaptcha = useRecaptcha(
-    isMobileBrowser === false ? process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY : undefined,
-  );
+  // Disable reCAPTCHA for student portal - backend bypasses it via x-app-platform header
+  const recaptcha = useRecaptcha(undefined);
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -126,27 +125,17 @@ export default function LoginPage() {
 
   const resendOtpMutation = useMutation({
     mutationFn: async () => {
-      const appPlatform = (isMobileBrowser ?? detectMobileBrowser()) ? "mobile" : undefined;
-      const recaptchaToken = recaptcha.isEnabled ? recaptcha.getToken() : undefined;
-
-      if (recaptcha.isEnabled && !recaptcha.isReady) {
-        throw new AuthApiError("Verification is still loading. Please wait a moment and try again.");
-      }
-
-      if (recaptcha.isEnabled && !recaptchaToken) {
-        throw new AuthApiError("Please complete the reCAPTCHA verification before requesting a new OTP.");
-      }
+      // Student portal bypasses reCAPTCHA via x-app-platform: mobile header
+      const appPlatform = "mobile";
 
       try {
-        return await loginRequest({ email, password, recaptchaToken, appPlatform });
+        return await loginRequest({ email, password, recaptchaToken: undefined, appPlatform });
       } catch (error) {
         const authError = toAuthApiError(error);
         if (authError.status === 403 && authError.code === "EMAIL_VERIFICATION_REQUIRED") {
           return null;
         }
         throw authError;
-      } finally {
-        recaptcha.reset();
       }
     },
     onSuccess: (session) => {
@@ -179,24 +168,14 @@ export default function LoginPage() {
       return;
     }
 
-    const appPlatform = (isMobileBrowser ?? detectMobileBrowser()) ? "mobile" : undefined;
-    const recaptchaToken = recaptcha.isEnabled ? recaptcha.getToken() : undefined;
-
-    if (recaptcha.isEnabled && !recaptcha.isReady) {
-      setFormError("Verification is still loading. Please wait a moment and try again.");
-      return;
-    }
-
-    if (recaptcha.isEnabled && !recaptchaToken) {
-      setFormError("Please complete the reCAPTCHA verification to continue.");
-      return;
-    }
+    // Student portal bypasses reCAPTCHA via x-app-platform: mobile header
+    const appPlatform = "mobile";
 
     try {
       await loginMutation.mutateAsync({
         email: parsed.data.email,
         password: parsed.data.password,
-        recaptchaToken,
+        recaptchaToken: undefined,
         appPlatform,
       });
       router.push("/dashboard");
@@ -209,8 +188,6 @@ export default function LoginPage() {
       } else {
         setFormError(authError.message);
       }
-    } finally {
-      recaptcha.reset();
     }
   };
 
@@ -516,20 +493,6 @@ export default function LoginPage() {
                     <p className="text-xs text-red-600">{fieldErrors.password}</p>
                   ) : null}
                 </div>
-
-                {recaptcha.isEnabled ? (
-                  <div className="space-y-2">
-                    <div
-                      id="student-portal-recaptcha"
-                      className="flex min-h-[78px] items-center justify-center overflow-hidden rounded-lg border border-dashed border-[#ece5c8] bg-[#faf9f6] p-3"
-                    />
-                    {!recaptcha.isReady ? (
-                      <p className="text-xs text-[#737373] text-center">
-                        Loading verification...
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
 
                 {formError ? (
                   <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5">
