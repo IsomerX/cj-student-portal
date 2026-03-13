@@ -25,6 +25,8 @@ import {
     AlertCircle,
     Mic,
     MicOff,
+    Video,
+    VideoOff,
     Hand,
     MessageCircle,
     PhoneOff,
@@ -717,22 +719,24 @@ export default function LiveSessionClient() {
         }
     }, [hmsActions, requestCameraPermission]);
 
-    // Auto-enable mic + camera when brought on stage
+    // Track previous role to detect transitions
+    const prevCanPublishRef = useRef(canPublishAudio);
+
+    // When publishing rights change, auto-enable or force-disable mic + camera
     useEffect(() => {
-        if (!notification) {
-            return;
-        }
+        const wasPublishing = prevCanPublishRef.current;
+        prevCanPublishRef.current = canPublishAudio;
 
-        if (notification.type !== HMSNotificationTypes.ROLE_UPDATED) {
-            return;
+        if (canPublishAudio && !wasPublishing) {
+            // Promoted to stage — enable mic + camera
+            void enableMicrophone();
+            void enableCamera();
+        } else if (!canPublishAudio && wasPublishing) {
+            // Demoted to viewer — force disable mic + camera
+            void hmsActions.setLocalAudioEnabled(false).catch(() => {});
+            void hmsActions.setLocalVideoEnabled(false).catch(() => {});
         }
-
-        const peer = notification.data as HMSPeer | undefined;
-        if (peer?.isLocal && peer.roleName === "viewer-on-stage") {
-            if (!isAudioEnabled) void enableMicrophone();
-            if (!isVideoEnabled) void enableCamera();
-        }
-    }, [notification, isAudioEnabled, isVideoEnabled, enableMicrophone, enableCamera]);
+    }, [canPublishAudio, enableMicrophone, enableCamera, hmsActions]);
 
     // Handle teacher's camera request
     useEffect(() => {
@@ -756,6 +760,18 @@ export default function LiveSessionClient() {
             console.error("Failed to toggle audio:", err);
         }
     }, [hmsActions, isAudioEnabled, enableMicrophone]);
+
+    const handleToggleCamera = useCallback(async () => {
+        try {
+            if (isVideoEnabled) {
+                await hmsActions.setLocalVideoEnabled(false);
+            } else {
+                await enableCamera();
+            }
+        } catch (err) {
+            console.error("Failed to toggle camera:", err);
+        }
+    }, [hmsActions, isVideoEnabled, enableCamera]);
 
     const handleToggleHand = useCallback(async () => {
         try {
@@ -1094,6 +1110,17 @@ export default function LiveSessionClient() {
                                 </button>
                             )}
 
+                            {canPublishAudio && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleToggleCamera(); resetControlsTimer(); }}
+                                    className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
+                                        isVideoEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white"
+                                    }`}
+                                >
+                                    {isVideoEnabled ? <Video className="w-4.5 h-4.5" /> : <VideoOff className="w-4.5 h-4.5" />}
+                                </button>
+                            )}
+
                             {!canPublishAudio && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleToggleHand(); resetControlsTimer(); }}
@@ -1129,21 +1156,36 @@ export default function LiveSessionClient() {
                     </div>
                 </div>
 
-                {canPublishAudio && !showControls && (
+                {!showControls && (
                     <div className={`absolute bottom-4 z-20 flex items-center gap-3 pointer-events-auto ${
                         showChat ? "left-1/4 -translate-x-1/2" : "left-1/2 -translate-x-1/2"
                     }`}>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                void handleToggleMute();
-                            }}
-                            className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
-                                isAudioEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white backdrop-blur-sm"
-                            }`}
-                        >
-                            {isAudioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
-                        </button>
+                        {canPublishAudio && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleToggleMute();
+                                }}
+                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
+                                    isAudioEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white backdrop-blur-sm"
+                                }`}
+                            >
+                                {isAudioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+                            </button>
+                        )}
+                        {canPublishAudio && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleToggleCamera();
+                                }}
+                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
+                                    isVideoEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white backdrop-blur-sm"
+                                }`}
+                            >
+                                {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+                            </button>
+                        )}
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -1211,10 +1253,15 @@ export default function LiveSessionClient() {
                 )}
             </div>
 
-            {/* Participant strip — active speaker first */}
-            {participantPeers.length > 0 && (
+            {/* Participant strip — local peer (when on stage) + others */}
+            {(participantPeers.length > 0 || (canPublishAudio && localPeer)) && (
                 <div className="shrink-0 px-3 pb-2">
                     <div className="flex gap-2 overflow-x-auto scrollbar-none py-1">
+                        {canPublishAudio && localPeer && (
+                            <div className="w-20 h-20 shrink-0">
+                                <VideoTile peer={localPeer} isLocal />
+                            </div>
+                        )}
                         {[...participantPeers].sort((a, b) => {
                             if (dominantSpeaker) {
                                 if (a.id === dominantSpeaker.id && b.id !== dominantSpeaker.id) return -1;
@@ -1276,6 +1323,17 @@ export default function LiveSessionClient() {
                         }`}
                     >
                         {isAudioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+                    </button>
+                )}
+
+                {canPublishAudio && (
+                    <button
+                        onClick={handleToggleCamera}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
+                            isVideoEnabled ? "bg-[#c4a57b] text-white" : "bg-[#e7e7e7] text-[#767676]"
+                        }`}
+                    >
+                        {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
                     </button>
                 )}
 
