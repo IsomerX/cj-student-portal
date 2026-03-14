@@ -30,6 +30,7 @@ import {
     Hand,
     MessageCircle,
     PhoneOff,
+    Pin,
     SmilePlus,
     MonitorUp,
     X,
@@ -78,21 +79,32 @@ function VideoTile({
     isLocal,
     noRound,
     isActiveSpeaker,
+    isPinned,
+    onTogglePin,
     videoFit = "cover",
 }: {
     peer: HMSPeer;
     isLocal?: boolean;
     noRound?: boolean;
     isActiveSpeaker?: boolean;
+    isPinned?: boolean;
+    onTogglePin?: () => void;
     videoFit?: "cover" | "contain";
 }) {
     const { videoRef } = useVideo({ trackId: peer.videoTrack });
     const isAudioEnabled = useHMSStore(selectIsPeerAudioEnabled(peer.id));
     const hasVideo = !!peer.videoTrack;
     const initials = (peer.name || "?").charAt(0).toUpperCase();
+    const emphasisClass = isPinned
+        ? "ring-[3px] ring-[#c4a57b] shadow-[0_0_18px_rgba(196,165,123,0.42)]"
+        : isActiveSpeaker
+            ? "ring-[3px] ring-green-400 shadow-[0_0_16px_rgba(74,222,128,0.4)]"
+            : isLocal
+                ? "ring-2 ring-[#414141]"
+                : "";
 
     return (
-        <div className={`relative w-full h-full bg-gray-900 overflow-hidden transition-shadow duration-300 ${noRound ? "" : "rounded-2xl"} ${isActiveSpeaker ? "ring-[3px] ring-green-400 shadow-[0_0_16px_rgba(74,222,128,0.4)]" : isLocal ? "ring-2 ring-[#414141]" : ""}`}>
+        <div className={`relative w-full h-full bg-gray-900 overflow-hidden transition-shadow duration-300 ${noRound ? "" : "rounded-2xl"} ${emphasisClass}`}>
             <video
                 ref={videoRef}
                 autoPlay
@@ -100,6 +112,16 @@ function VideoTile({
                 playsInline
                 className={`pointer-events-none h-full w-full ${videoFit === "contain" ? "object-contain" : "object-cover"} ${!hasVideo ? "hidden" : ""}`}
             />
+            {onTogglePin && (
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-black/45 via-black/10 to-transparent" />
+            )}
+            {onTogglePin && (
+                <TilePinButton
+                    isPinned={isPinned}
+                    label={isPinned ? `Unpin ${peer.name || "participant"} video` : `Pin ${peer.name || "participant"} video`}
+                    onClick={onTogglePin}
+                />
+            )}
             {!hasVideo && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
                     <div className="w-16 h-16 rounded-full bg-[#414141]/30 border-2 border-[#414141]/50 flex items-center justify-center">
@@ -164,6 +186,45 @@ function EmojiOverlay({ emojis }: { emojis: FloatingEmoji[] }) {
                 </div>
             ))}
         </div>
+    );
+}
+
+function StagePinnedBadge({ label }: { label: string }) {
+    return (
+        <div className="absolute left-3 top-3 z-10">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-black/65 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm">
+                <Pin className="h-3 w-3" />
+                {label}
+            </span>
+        </div>
+    );
+}
+
+function TilePinButton({
+    isPinned,
+    label,
+    onClick,
+}: {
+    isPinned?: boolean;
+    label: string;
+    onClick: () => void;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={(event) => {
+                event.stopPropagation();
+                onClick();
+            }}
+            aria-label={label}
+            className={`absolute right-1.5 top-1.5 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border shadow-md backdrop-blur-sm transition-colors ${
+                isPinned
+                    ? "border-white/20 bg-[#c4a57b] text-white shadow-[0_10px_22px_rgba(196,165,123,0.35)]"
+                    : "border-[#f1ead6] bg-[#fff9ec]/95 text-[#414141] hover:bg-white"
+            }`}
+        >
+            <Pin className="h-3.5 w-3.5" />
+        </button>
     );
 }
 
@@ -278,6 +339,7 @@ export default function LiveSessionClient() {
     );
     const [micPermissionNeedsSettings, setMicPermissionNeedsSettings] = useState(false);
     const [isRetryingMicPermission, setIsRetryingMicPermission] = useState(false);
+    const [pinnedPeerId, setPinnedPeerId] = useState<string | null>(null);
 
     // Landscape / fullscreen controls
     const [isLandscape, setIsLandscape] = useState(false);
@@ -325,6 +387,36 @@ export default function LiveSessionClient() {
 
     // Other participants (not broadcaster, not local)
     const participantPeers = peers.filter((p) => p !== broadcasterPeer && !p.isLocal);
+    const defaultPinnedPeerId = broadcasterPeer?.id ?? null;
+    const activePinnedPeerId = pinnedPeerId ?? defaultPinnedPeerId;
+    const pinnedPeer = pinnedPeerId
+        ? (localPeer?.id === pinnedPeerId ? localPeer : peers.find((peer) => peer.id === pinnedPeerId)) ?? null
+        : null;
+    const activeStagePeerId = pinnedPeer?.id ?? defaultPinnedPeerId;
+    const participantStripPeers = [
+        ...(broadcasterPeer && broadcasterPeer.id !== activeStagePeerId ? [broadcasterPeer] : []),
+        ...(canPublishAudio && localPeer && localPeer.id !== activeStagePeerId ? [localPeer] : []),
+        ...[...participantPeers].sort((a, b) => {
+            if (dominantSpeaker) {
+                if (a.id === dominantSpeaker.id && b.id !== dominantSpeaker.id) return -1;
+                if (b.id === dominantSpeaker.id && a.id !== dominantSpeaker.id) return 1;
+            }
+
+            return 0;
+        }).filter((peer) => peer.id !== activeStagePeerId),
+    ];
+    const hasParticipantStrip = participantStripPeers.length > 0;
+
+    useEffect(() => {
+        if (!pinnedPeerId) {
+            return;
+        }
+
+        const stillExists = localPeer?.id === pinnedPeerId || peers.some((peer) => peer.id === pinnedPeerId);
+        if (!stillExists) {
+            setPinnedPeerId(null);
+        }
+    }, [localPeer?.id, peers, pinnedPeerId]);
 
     // ─── Token polling → join flow ──────────────────────────────────────────
 
@@ -549,6 +641,14 @@ export default function LiveSessionClient() {
             resetControlsTimer();
         }
     }, [isLandscape, showControls, resetControlsTimer]);
+
+    const togglePinnedPeer = useCallback((peer: HMSPeer | null | undefined) => {
+        if (!peer) {
+            return;
+        }
+
+        setPinnedPeerId((currentPinnedPeerId) => currentPinnedPeerId === peer.id ? null : peer.id);
+    }, []);
 
     useEffect(() => {
         if (!isLandscape || connectionState !== "connected") {
@@ -946,7 +1046,20 @@ export default function LiveSessionClient() {
     // Shared video stage content
     const renderVideoStage = (noRound?: boolean) => (
         <>
-            {hasScreenShare && screenShareTrackId ? (
+            {pinnedPeer ? (
+                <div className={`relative w-full h-full overflow-hidden ${noRound ? "bg-black" : "rounded-2xl bg-[#f5f0dc]"}`}>
+                    <VideoTile
+                        peer={pinnedPeer}
+                        isLocal={pinnedPeer.isLocal}
+                        noRound={noRound}
+                        isActiveSpeaker={dominantSpeaker?.id === pinnedPeer.id}
+                        isPinned
+                        onTogglePin={() => setPinnedPeerId(null)}
+                        videoFit={noRound ? "contain" : "cover"}
+                    />
+                    <StagePinnedBadge label={`${pinnedPeer.name || "Participant"} pinned`} />
+                </div>
+            ) : hasScreenShare && screenShareTrackId ? (
                 <div className="relative w-full h-full">
                     <ScreenShareView
                         trackId={screenShareTrackId}
@@ -955,7 +1068,7 @@ export default function LiveSessionClient() {
                     />
                     {teacherCameraTrackId && broadcasterPeer && (
                         <div className="absolute top-3 right-3 w-24 h-32 sm:w-28 sm:h-36 rounded-xl overflow-hidden shadow-lg border border-white/20">
-                            <TeacherPiP peer={broadcasterPeer} />
+                            <TeacherPiP peer={broadcasterPeer} onTogglePin={() => togglePinnedPeer(broadcasterPeer)} />
                         </div>
                     )}
                 </div>
@@ -965,6 +1078,8 @@ export default function LiveSessionClient() {
                         peer={broadcasterPeer}
                         noRound={noRound}
                         isActiveSpeaker={dominantSpeaker?.id === broadcasterPeer.id}
+                        isPinned={activePinnedPeerId === broadcasterPeer.id}
+                        onTogglePin={() => togglePinnedPeer(broadcasterPeer)}
                         videoFit={noRound ? "contain" : "cover"}
                     />
                 </div>
@@ -1049,6 +1164,31 @@ export default function LiveSessionClient() {
                             <span className="text-xs font-semibold text-white">
                                 {isAudioEnabled ? "On stage" : "On stage - turn on mic"}
                             </span>
+                        </div>
+                    )}
+
+                    {showControls && hasParticipantStrip && (
+                        <div
+                            className={`absolute bottom-28 z-20 pointer-events-auto ${
+                                showChat ? "left-3 right-[calc(50%+0.75rem)]" : "left-3 right-3"
+                            }`}
+                        >
+                            <div className="flex gap-2 overflow-x-auto rounded-2xl bg-black/40 p-2 backdrop-blur-sm scrollbar-none">
+                                {participantStripPeers.map((peer) => (
+                                    <div key={peer.id} className="h-16 w-16 shrink-0">
+                                        <VideoTile
+                                            peer={peer}
+                                            isLocal={peer.isLocal}
+                                            isActiveSpeaker={dominantSpeaker?.id === peer.id}
+                                            isPinned={activePinnedPeerId === peer.id}
+                                            onTogglePin={() => {
+                                                togglePinnedPeer(peer);
+                                                resetControlsTimer();
+                                            }}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
 
@@ -1254,23 +1394,18 @@ export default function LiveSessionClient() {
             </div>
 
             {/* Participant strip — local peer (when on stage) + others */}
-            {(participantPeers.length > 0 || (canPublishAudio && localPeer)) && (
+            {hasParticipantStrip && (
                 <div className="shrink-0 px-3 pb-2">
                     <div className="flex gap-2 overflow-x-auto scrollbar-none py-1">
-                        {canPublishAudio && localPeer && (
-                            <div className="w-20 h-20 shrink-0">
-                                <VideoTile peer={localPeer} isLocal />
-                            </div>
-                        )}
-                        {[...participantPeers].sort((a, b) => {
-                            if (dominantSpeaker) {
-                                if (a.id === dominantSpeaker.id && b.id !== dominantSpeaker.id) return -1;
-                                if (b.id === dominantSpeaker.id && a.id !== dominantSpeaker.id) return 1;
-                            }
-                            return 0;
-                        }).map((peer) => (
+                        {participantStripPeers.map((peer) => (
                             <div key={peer.id} className="w-20 h-20 shrink-0">
-                                <VideoTile peer={peer} isActiveSpeaker={dominantSpeaker?.id === peer.id} />
+                                <VideoTile
+                                    peer={peer}
+                                    isLocal={peer.isLocal}
+                                    isActiveSpeaker={dominantSpeaker?.id === peer.id}
+                                    isPinned={activePinnedPeerId === peer.id}
+                                    onTogglePin={() => togglePinnedPeer(peer)}
+                                />
                             </div>
                         ))}
                     </div>
@@ -1423,13 +1558,22 @@ export default function LiveSessionClient() {
 }
 
 // Small PiP component for teacher camera during screen share
-function TeacherPiP({ peer }: { peer: HMSPeer }) {
+function TeacherPiP({ peer, onTogglePin }: { peer: HMSPeer; onTogglePin?: () => void }) {
     const { videoRef } = useVideo({ trackId: peer.videoTrack });
     const hasVideo = !!peer.videoTrack;
 
     return (
-        <div className="w-full h-full bg-gray-900">
+        <div className="relative w-full h-full bg-gray-900">
             <video ref={videoRef} autoPlay muted playsInline className={`w-full h-full object-cover ${!hasVideo ? "hidden" : ""}`} />
+            {onTogglePin && (
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-black/45 via-black/10 to-transparent" />
+            )}
+            {onTogglePin && (
+                <TilePinButton
+                    label={`Pin ${peer.name || "teacher"} video`}
+                    onClick={onTogglePin}
+                />
+            )}
             {!hasVideo && (
                 <div className="w-full h-full flex items-center justify-center">
                     <span className="text-lg font-semibold text-white/80">{(peer.name || "T").charAt(0).toUpperCase()}</span>
