@@ -153,10 +153,10 @@ export default function FeesPage() {
 
   if (isLoading && !pendingFees.length) {
     return (
-      <div className="min-h-screen bg-[#fffbe7] flex items-center justify-center">
+      <div className="min-h-screen bg-[#f0f2f5] flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-gray-900 mx-auto mb-4" />
-          <p className="text-gray-600 font-medium">Loading fees...</p>
+          <Loader2 className="h-12 w-12 animate-spin text-[#283618] mx-auto mb-4" />
+          <p className="text-[#737373] font-medium">Loading fees...</p>
         </div>
       </div>
     );
@@ -164,18 +164,20 @@ export default function FeesPage() {
 
   if (hasError) {
     return (
-      <div className="min-h-screen bg-[#fffbe7] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#f0f2f5] flex items-center justify-center p-4">
         <div className="text-center max-w-md">
-          <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900 mb-2">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[16px] bg-[#fef2f2] text-[#dc2626] ring-1 ring-[#fecaca] mb-4">
+            <AlertCircle className="h-8 w-8" />
+          </div>
+          <h2 className="text-xl font-bold text-[#212121] mb-2">
             Failed to load fees
           </h2>
-          <p className="text-gray-600 mb-4">
+          <p className="text-[#737373] mb-6">
             There was an error loading your fee information. Please try again.
           </p>
           <button
             onClick={() => refetchFees()}
-            className="px-6 py-2 bg-gray-900 text-white rounded-lg border-2 border-gray-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all font-semibold"
+            className="inline-flex items-center gap-2 rounded-[14px] bg-[#283618] px-6 py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#1f2912] hover:shadow-md active:scale-[0.97]"
           >
             Retry
           </button>
@@ -185,28 +187,81 @@ export default function FeesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fffbe7]">
-      <div className="max-w-5xl mx-auto p-6">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Fee Payment
-          </h1>
-          <p className="text-gray-600">Manage your fees and payments</p>
-        </div>
+    <main className="min-h-[100dvh] overflow-x-hidden bg-[#f0f2f5] pb-36 sm:pb-12">
+      {/* Modern Gradient Header */}
+      <section
+        className="relative rounded-b-[32px] bg-[#283618] px-3 pb-8 pt-5 shadow-lg sm:rounded-b-[40px] sm:px-6 sm:pb-10 sm:pt-6 lg:px-8 overflow-hidden"
+        style={{ paddingTop: "max(1.25rem, calc(env(safe-area-inset-top) + 0.25rem))" }}
+      >
+        <div className="absolute -left-10 top-0 h-48 w-48 rounded-full bg-white/5 blur-2xl" />
+        <div className="absolute right-0 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-[#cadab2]/10 blur-3xl lg:translate-x-1/4" />
 
-        {/* Statistics */}
-        {stats && <FeeStatsCards stats={stats} />}
-
-        {/* Pending Fees */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <DollarSign className="h-6 w-6 text-gray-900" strokeWidth={2.5} />
-            <h2 className="text-xl font-bold text-gray-900">Payable Fees</h2>
+        <div className="relative mx-auto max-w-6xl">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-[14px] sm:rounded-[16px] bg-white text-[#283618] shadow-sm ring-2 ring-white/10">
+                <DollarSign className="h-5 w-5 sm:h-6 sm:w-6" />
+              </div>
+              <div>
+                <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">
+                  Student Portal
+                </p>
+                <p className="text-lg sm:text-xl font-extrabold tracking-tight text-white lg:text-2xl">
+                  Fee Payment
+                </p>
+              </div>
+            </div>
           </div>
 
+          <div className="mt-8 sm:mt-10 max-w-2xl space-y-4">
+            <h1 className="text-[1.75rem] sm:text-[2.25rem] font-extrabold leading-tight tracking-tight text-white lg:text-[2.75rem]">
+              Fees & Payments
+            </h1>
+            <p className="text-sm sm:text-base font-medium leading-relaxed text-white/80">
+              View your fee details, make payments, and track transaction history.
+            </p>
+          </div>
+
+          {/* Statistics Cards in Header */}
+          {stats && (
+            <div className="mt-6 sm:mt-8 grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="rounded-[16px] bg-white/10 p-4 backdrop-blur-md ring-1 ring-white/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle className="h-4 w-4 text-amber-300" />
+                  <p className="text-xs font-bold uppercase tracking-[0.15em] text-white/80">
+                    Pending
+                  </p>
+                </div>
+                <p className="text-2xl sm:text-3xl font-extrabold text-white">
+                  ₹{stats.totalPending.toLocaleString()}
+                </p>
+              </div>
+              <div className="rounded-[16px] bg-white/10 p-4 backdrop-blur-md ring-1 ring-white/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <DollarSign className="h-4 w-4 text-emerald-300" />
+                  <p className="text-xs font-bold uppercase tracking-[0.15em] text-white/80">
+                    Paid
+                  </p>
+                </div>
+                <p className="text-2xl sm:text-3xl font-extrabold text-white">
+                  ₹{stats.totalPaid.toLocaleString()}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Content Area */}
+      <div className="relative z-10 mx-auto mt-4 sm:mt-6 max-w-4xl px-3 sm:px-6 lg:px-8">
+        {/* Pending Fees */}
+        <div className="mb-8">
+          <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-[#737373] mb-4 pl-1">
+            Pending Fees
+          </h2>
+
           {pendingFees.length > 0 ? (
-            <div className="space-y-4">
+            <div className="grid gap-3 sm:gap-4">
               {pendingFees.map((fee) => (
                 <FeeCard
                   key={fee.feeReminderId}
@@ -217,12 +272,14 @@ export default function FeesPage() {
               ))}
             </div>
           ) : (
-            <div className="bg-white border-2 border-gray-200 rounded-lg p-12 text-center">
-              <DollarSign className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            <div className="rounded-[24px] border border-[#ece5c8] bg-white px-5 py-12 text-center shadow-sm">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[16px] bg-[#f6fbf2] text-[#2d8c53] ring-1 ring-[#d9ead0]">
+                <DollarSign className="h-6 w-6" />
+              </div>
+              <h3 className="mt-5 text-lg font-bold text-[#212121]">
                 No Pending Fees
               </h3>
-              <p className="text-gray-600">
+              <p className="mt-2 text-sm text-[#737373]">
                 You have no pending fees at this time.
               </p>
             </div>
@@ -231,15 +288,12 @@ export default function FeesPage() {
 
         {/* Transaction History */}
         <div>
-          <div className="flex items-center gap-2 mb-4">
-            <History className="h-6 w-6 text-gray-900" strokeWidth={2.5} />
-            <h2 className="text-xl font-bold text-gray-900">
-              Transaction History
-            </h2>
-          </div>
+          <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-[#737373] mb-4 pl-1">
+            Transaction History
+          </h2>
 
           {transactionsData && transactionsData.transactions.length > 0 ? (
-            <div className="space-y-3">
+            <div className="grid gap-3 sm:gap-4">
               {transactionsData.transactions.map((transaction) => (
                 <TransactionItem
                   key={transaction.id}
@@ -248,18 +302,20 @@ export default function FeesPage() {
               ))}
             </div>
           ) : (
-            <div className="bg-white border-2 border-gray-200 rounded-lg p-12 text-center">
-              <History className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            <div className="rounded-[24px] border border-[#ece5c8] bg-white px-5 py-12 text-center shadow-sm">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[16px] bg-[#f6fbf2] text-[#737373] ring-1 ring-[#ece5c8]">
+                <History className="h-6 w-6" />
+              </div>
+              <h3 className="mt-5 text-lg font-bold text-[#212121]">
                 No Transactions Yet
               </h3>
-              <p className="text-gray-600">
+              <p className="mt-2 text-sm text-[#737373]">
                 Your payment history will appear here.
               </p>
             </div>
           )}
         </div>
       </div>
-    </div>
+    </main>
   );
 }
