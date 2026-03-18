@@ -23,6 +23,7 @@ import {
   verifyPhoneOtp,
 } from "@/lib/firebase/auth";
 import { useRecaptcha } from "@/hooks/use-recaptcha";
+import { analytics } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
 const loginSchema = z.object({
@@ -202,6 +203,8 @@ export default function LoginPage() {
     // Student portal bypasses reCAPTCHA via x-app-platform: mobile header
     const appPlatform = "mobile";
 
+    analytics.trackLoginAttempted('email');
+
     try {
       await loginMutation.mutateAsync({
         email: parsed.data.email,
@@ -209,6 +212,8 @@ export default function LoginPage() {
         recaptchaToken: undefined,
         appPlatform,
       });
+      analytics.trackLoginSucceeded('email');
+      analytics.identify(parsed.data.email, { email: parsed.data.email });
       navigateToDashboard();
     } catch (error) {
       const authError = toAuthApiError(error);
@@ -217,6 +222,7 @@ export default function LoginPage() {
         setOtpError(null);
         setIsOtpDialogOpen(true);
       } else {
+        analytics.trackLoginFailed('email', authError.message);
         setFormError(authError.message);
       }
     }
@@ -233,6 +239,8 @@ export default function LoginPage() {
 
     try {
       await verifyOtpMutation.mutateAsync({ email, otp: otpValue });
+      analytics.trackOtpVerified('email');
+      analytics.trackLoginSucceeded('otp');
       setIsOtpDialogOpen(false);
       navigateToDashboard();
     } catch (error) {
@@ -259,6 +267,7 @@ export default function LoginPage() {
       return;
     }
 
+    analytics.trackLoginAttempted('phone');
     setIsSendingPhoneOtp(true);
 
     try {
@@ -292,12 +301,14 @@ export default function LoginPage() {
 
     try {
       const verified = await verifyPhoneOtp(confirmationResult, parsed.data);
+      analytics.trackOtpVerified('phone');
       try {
         await firebaseLoginMutation.mutateAsync({
           idToken: verified.idToken,
           phoneNumber: verified.phoneNumber ?? verifiedPhoneNumber ?? undefined,
         });
 
+        analytics.trackLoginSucceeded('phone');
         await signOutFirebaseUser();
         navigateToDashboard();
       } catch (backendError) {

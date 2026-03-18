@@ -39,6 +39,7 @@ import {
 import { joinLiveClass, LiveClassesApiError } from "@/lib/api/live-classes";
 import { useLiveClassTokenQuery } from "@/hooks/use-live-classes";
 import { liveClassQueryKeys } from "@/lib/query-keys";
+import { analytics } from "@/lib/analytics";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -508,10 +509,12 @@ export default function LiveSessionClient() {
     useEffect(() => {
         if (roomState === VideoRoomState.Connected) {
             setConnectionState("connected");
+            analytics.trackLiveClassJoined(params.classId);
         } else if (roomState === VideoRoomState.Disconnected && connectionState === "connected") {
             setConnectionState("disconnected");
+            analytics.trackLiveClassLeft(params.classId);
         }
-    }, [roomState, connectionState]);
+    }, [roomState, connectionState, params.classId]);
 
     // Cleanup on unmount
     useEffect(() => {
@@ -848,10 +851,12 @@ export default function LiveSessionClient() {
         try {
             if (isAudioEnabled) {
                 await actions.setLocalAudioEnabled(false);
+                analytics.trackMicToggled(false);
                 return;
             }
 
             await enableMicrophone();
+            analytics.trackMicToggled(true);
         } catch (err) {
             console.error("Failed to toggle audio:", err);
         }
@@ -861,8 +866,10 @@ export default function LiveSessionClient() {
         try {
             if (isVideoEnabled) {
                 await actions.setLocalVideoEnabled(false);
+                analytics.trackCameraToggled(false);
             } else {
                 await enableCamera();
+                analytics.trackCameraToggled(true);
             }
         } catch (err) {
             console.error("Failed to toggle camera:", err);
@@ -875,6 +882,7 @@ export default function LiveSessionClient() {
                 await actions.lowerHand();
             } else {
                 await actions.raiseHand();
+                analytics.trackHandRaised();
             }
             setIsHandRaised(!isHandRaised);
         } catch (err) {
@@ -908,6 +916,7 @@ export default function LiveSessionClient() {
     }, [actions, localPeer?.name, triggerEmoji]);
 
     const handleLeave = useCallback(async () => {
+        analytics.trackLiveClassLeft(params.classId);
         queryClient.removeQueries({ queryKey: liveClassQueryKeys.token(params.classId) });
         try {
             await actions.leave();

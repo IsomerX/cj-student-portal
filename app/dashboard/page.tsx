@@ -23,6 +23,7 @@ import { useAuthProfileQuery, useLogoutMutation } from "@/hooks/use-auth";
 import { useLiveClassesQuery, useRecordingsQuery } from "@/hooks/use-live-classes";
 import { clearSession, getStoredToken } from "@/lib/auth/storage";
 import type { LiveClass } from "@/lib/api/live-classes";
+import { analytics } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import { NameSetupDialog } from "@/components/NameSetupDialog";
 
@@ -250,6 +251,21 @@ export default function DashboardPage() {
     }
   }, [router, token]);
 
+  // Track app launch once on mount
+  React.useEffect(() => {
+    analytics.trackAppLaunched();
+  }, []);
+
+  // Track dashboard loaded when data is available
+  React.useEffect(() => {
+    if (profileQuery.data && liveClassesQuery.data && batchesQuery.data) {
+      analytics.trackDashboardLoaded({
+        batch_count: batchesQuery.data.length,
+        live_class_count: liveClassesQuery.data.length,
+      });
+    }
+  }, [profileQuery.data, liveClassesQuery.data, batchesQuery.data]);
+
   // Check if user needs to set their name
   React.useEffect(() => {
     if (profileQuery.data && !profileQuery.data.name?.trim()) {
@@ -304,6 +320,7 @@ export default function DashboardPage() {
   };
 
   const handleLogout = async () => {
+    analytics.trackLogout();
     await logoutMutation.mutateAsync();
     router.replace("/login");
   };
