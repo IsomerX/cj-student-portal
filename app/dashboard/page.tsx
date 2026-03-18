@@ -24,6 +24,7 @@ import { useLiveClassesQuery, useRecordingsQuery } from "@/hooks/use-live-classe
 import { clearSession, getStoredToken } from "@/lib/auth/storage";
 import type { LiveClass } from "@/lib/api/live-classes";
 import { cn } from "@/lib/utils";
+import { NameSetupDialog } from "@/components/NameSetupDialog";
 
 type ModuleShortcut = {
   title: string;
@@ -75,7 +76,7 @@ const DASHBOARD_QUOTES = [
 ];
 
 function getFirstName(name?: string | null) {
-  if (!name) return "Student";
+  if (!name || !name.trim()) return "Student";
 
   const firstName = name.trim().split(/\s+/)[0];
   return firstName || "Student";
@@ -102,7 +103,7 @@ function formatClassTime(dateString: string): string {
 
 function DashboardLoadingState() {
   return (
-    <main className="min-h-[100dvh] overflow-x-hidden bg-[#f0f2f5] pb-28 sm:pb-12">
+    <main className="min-h-[100dvh] overflow-x-hidden bg-[#f0f2f5] pb-[calc(env(safe-area-inset-bottom)+6.5rem)] sm:pb-12">
       <section className="h-64 w-full animate-pulse rounded-b-[32px] bg-[#283618]" />
       <div className="mx-auto max-w-6xl space-y-4 px-3 sm:px-6 lg:px-8">
         <div className="-mt-10 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
@@ -111,6 +112,17 @@ function DashboardLoadingState() {
         </div>
       </div>
     </main>
+  );
+}
+
+function DashboardMetaChip({ label }: { label: string }) {
+  return (
+    <div
+      title={label}
+      className="max-w-full truncate rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white ring-1 ring-white/20"
+    >
+      {label}
+    </div>
   );
 }
 
@@ -230,12 +242,40 @@ export default function DashboardPage() {
   const liveClassesQuery = useLiveClassesQuery();
   const batchesQuery = useMyBatchesQuery();
   const logoutMutation = useLogoutMutation();
+  const [showNameSetup, setShowNameSetup] = React.useState(false);
 
   React.useEffect(() => {
     if (!token) {
       router.replace("/login");
     }
   }, [router, token]);
+
+  // Check if user needs to set their name
+  React.useEffect(() => {
+    if (profileQuery.data && !profileQuery.data.name?.trim()) {
+      setShowNameSetup(true);
+    }
+  }, [profileQuery.data]);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+
+    const scrollToTop = () => window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    scrollToTop();
+    const frame = window.requestAnimationFrame(scrollToTop);
+    const timeout = window.setTimeout(scrollToTop, 120);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, []);
 
   React.useEffect(() => {
     if (profileQuery.isError) {
@@ -256,6 +296,12 @@ export default function DashboardPage() {
   React.useEffect(() => {
     setQuoteIndex(Math.floor(Math.random() * DASHBOARD_QUOTES.length));
   }, []);
+
+  const handleNameComplete = () => {
+    setShowNameSetup(false);
+    // Refetch profile to get updated data
+    profileQuery.refetch();
+  };
 
   const handleLogout = async () => {
     await logoutMutation.mutateAsync();
@@ -295,38 +341,47 @@ export default function DashboardPage() {
     liveClassesQuery.error instanceof Error ? liveClassesQuery.error.message : null;
 
   return (
-    <main className="min-h-[100dvh] overflow-x-hidden bg-[#f0f2f5] pb-28 sm:pb-12">
-      <section
-        className="relative overflow-hidden rounded-b-[32px] bg-[#283618] px-3 pb-24 pt-5 shadow-lg sm:rounded-b-[40px] sm:px-6 sm:pb-28 sm:pt-6 lg:px-8"
-        style={{ paddingTop: "max(1.25rem, calc(env(safe-area-inset-top) + 0.25rem))" }}
-      >
+    <>
+      <NameSetupDialog
+        open={showNameSetup}
+        userId={typeof user?.id === "string" ? user.id : null}
+        onComplete={handleNameComplete}
+      />
+      <main className="min-h-[100dvh] overflow-x-hidden bg-[#f0f2f5] pb-[calc(env(safe-area-inset-bottom)+6.5rem)] sm:pb-12">
+        <section
+          className="relative overflow-hidden rounded-b-[32px] bg-[#283618] px-3 pb-20 pt-5 shadow-lg sm:rounded-b-[40px] sm:px-6 sm:pb-28 sm:pt-6 lg:px-8"
+          style={{ paddingTop: "max(1.5rem, calc(env(safe-area-inset-top) + 0.75rem))" }}
+        >
         <div className="absolute -left-10 top-0 h-48 w-48 rounded-full bg-white/5 blur-2xl" />
         <div className="absolute right-0 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-[#cadab2]/10 blur-3xl lg:translate-x-1/4" />
 
         <div className="relative mx-auto max-w-6xl">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-white text-[#283618] shadow-sm ring-2 ring-white/10 sm:h-12 sm:w-12 sm:rounded-[16px]">
+          <div className="flex flex-row items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <button
+                onClick={() => router.push("/profile")}
+                className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-white text-[#283618] shadow-sm ring-2 ring-white/10 transition-transform hover:scale-105 active:scale-95 sm:h-12 sm:w-12 sm:rounded-[16px]"
+              >
                 <GraduationCap className="h-5 w-5 sm:h-6 sm:w-6" />
-              </div>
-              <div>
-                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/70 sm:text-[10px]">
+              </button>
+              <div className="min-w-0">
+                <p className="truncate text-[9px] font-bold uppercase tracking-[0.2em] text-white/70 sm:text-[10px]">
                   Student Portal
                 </p>
-                <p className="text-lg font-extrabold tracking-tight text-white sm:text-xl lg:text-2xl">
+                <p className="truncate text-lg font-extrabold tracking-tight text-white sm:text-xl lg:text-2xl">
                   CJ Coaching
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={handleRefresh}
                 disabled={liveClassesQuery.isFetching || batchesQuery.isFetching || recordingsQuery.isFetching}
-                className="h-9 rounded-[12px] border-0 bg-white/10 px-3 text-white backdrop-blur-md hover:bg-white/20 hover:text-white"
+                className="h-9 rounded-[12px] border-0 bg-white/10 px-2.5 text-white backdrop-blur-md hover:bg-white/20 hover:text-white sm:px-3"
               >
                 <RefreshCw
                   className={cn(
@@ -343,7 +398,7 @@ export default function DashboardPage() {
                 size="sm"
                 onClick={handleLogout}
                 disabled={logoutMutation.isPending}
-                className="h-9 rounded-[12px] border-0 bg-white/10 px-3 text-white backdrop-blur-md hover:bg-white/20 hover:text-white"
+                className="h-9 rounded-[12px] border-0 bg-white/10 px-2.5 text-white backdrop-blur-md hover:bg-white/20 hover:text-white sm:px-3"
               >
                 <LogOut className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">
@@ -353,39 +408,30 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="mt-8 max-w-2xl space-y-4 sm:mt-10">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-[#cadab2] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#283618] shadow-sm">
+          <div className="mt-7 max-w-2xl space-y-4 sm:mt-10">
+            <div className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#cadab2] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#283618] shadow-sm">
               <Sparkles className="h-3 w-3" />
-              Live classes only
+              <span className="truncate">Live classes only</span>
             </div>
 
             <div className="space-y-2">
-              <h1 className="text-[1.75rem] font-extrabold leading-tight tracking-tight text-white sm:text-[2.25rem] lg:text-[2.75rem]">
+              <h1 className="break-words text-[clamp(1.75rem,8vw,2.75rem)] font-extrabold leading-[1.2] tracking-tight text-white">
                 {greetingLabel}, <span className="text-[#cadab2]">{studentName}</span>.
               </h1>
-              <p className="text-sm font-medium leading-relaxed text-white/80 sm:text-base">
+              <p className="max-w-[34rem] text-sm font-medium leading-relaxed text-white/80 sm:text-base">
                 &quot;{dashboardQuote}&quot;
               </p>
             </div>
 
             <div className="flex flex-wrap gap-2 pt-1">
               {user?.school?.name ? (
-                <div className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white ring-1 ring-white/20">
-                  {user.school.name}
-                </div>
+                <DashboardMetaChip label={user.school.name} />
               ) : null}
               {classDisplay ? (
-                <div className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white ring-1 ring-white/20">
-                  Class {classDisplay}
-                </div>
+                <DashboardMetaChip label={`Class ${classDisplay}`} />
               ) : null}
               {batchesQuery.data?.map((batch) => (
-                <div
-                  key={batch.id}
-                  className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white ring-1 ring-white/20"
-                >
-                  {batch.name}
-                </div>
+                <DashboardMetaChip key={batch.id} label={batch.name} />
               ))}
             </div>
           </div>
@@ -394,7 +440,7 @@ export default function DashboardPage() {
 
       <div className="relative z-10 mx-auto -mt-10 max-w-6xl px-3 sm:-mt-12 sm:px-6 lg:px-8">
         <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
-          <section className="rounded-[24px] border border-[#ece5c8] bg-white p-5 shadow-sm sm:p-6">
+          <section className="rounded-[24px] border border-[#ece5c8] bg-white p-4 shadow-sm sm:p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#737373]">
@@ -404,7 +450,7 @@ export default function DashboardPage() {
               </div>
               <Link
                 href="/live"
-                className="inline-flex items-center gap-2 self-start whitespace-nowrap rounded-full bg-[#283618] px-4 py-2 text-sm font-bold text-white transition-all hover:bg-[#1f2b13] sm:self-auto"
+                className="inline-flex w-full items-center justify-center gap-2 self-start whitespace-nowrap rounded-full bg-[#283618] px-4 py-2 text-sm font-bold text-white transition-all hover:bg-[#1f2b13] min-[400px]:w-auto sm:self-auto"
               >
                 Open live
                 <ChevronRight className="h-4 w-4" />
@@ -416,7 +462,7 @@ export default function DashboardPage() {
                 {liveClassesError}
               </div>
             ) : latestClasses.length === 0 && !liveClassesQuery.isLoading ? (
-              <div className="mt-5 rounded-[20px] border border-dashed border-[#d9dfcf] bg-[#fafbf8] px-5 py-10 text-center">
+              <div className="mt-5 rounded-[20px] border border-dashed border-[#d9dfcf] bg-[#fafbf8] px-4 py-10 text-center sm:px-5">
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-[16px] bg-[#f6fbf2] text-[#2d8c53]">
                   <Video className="h-5 w-5" />
                 </div>
@@ -434,7 +480,7 @@ export default function DashboardPage() {
             )}
           </section>
 
-          <section className="rounded-[24px] border border-[#ece5c8] bg-white p-5 shadow-sm sm:p-6">
+          <section className="rounded-[24px] border border-[#ece5c8] bg-white p-4 shadow-sm sm:p-6">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#737373]">
                 CJ modules
@@ -453,6 +499,7 @@ export default function DashboardPage() {
           </section>
         </div>
       </div>
-    </main>
+      </main>
+    </>
   );
 }

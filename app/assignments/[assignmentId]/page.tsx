@@ -538,7 +538,7 @@ export default function AssignmentDetailPage() {
             {voiceInstructionUrl ? (
               <SectionCard
                 title="Voice Instructions"
-                description="Listen to the teacher&apos;s spoken guidance for this assignment."
+                description="Listen to the teacher's spoken guidance for this assignment."
               >
                 <div className="rounded-[20px] border border-[#ece5c8] bg-[#faf8ef] p-4">
                   <div className="mb-3 flex items-center gap-3">

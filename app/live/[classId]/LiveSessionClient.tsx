@@ -3,29 +3,24 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams, useRouter, useParams } from "next/navigation";
 import {
-    useHMSActions,
-    useHMSStore,
-    useHMSNotifications,
-    useAutoplayError,
-    useVideo,
-    selectPeers,
-    selectLocalPeer,
-    selectIsLocalAudioEnabled,
-    selectRoomState,
-    selectIsPeerAudioEnabled,
-    HMSNotificationTypes,
-} from "@100mslive/react-sdk";
-import { HMSRoomState } from "@100mslive/react-sdk";
-import type { HMSPeer } from "@100mslive/react-sdk";
+    useVideoRoom,
+    useVideoTrack,
+    VideoRoomState,
+    VideoNotificationType,
+} from "@/hooks/video-provider";
+import type { VideoPeer } from "@/hooks/video-provider";
 import {
     ArrowLeft,
     Clock,
     AlertCircle,
     Mic,
     MicOff,
+    Video,
+    VideoOff,
     Hand,
     MessageCircle,
     PhoneOff,
+    Pin,
     SmilePlus,
     MonitorUp,
     X,
@@ -69,21 +64,55 @@ const EMOJI_LIFETIME_MS = 5200;
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function VideoTile({ peer, isLocal, noRound }: { peer: HMSPeer; isLocal?: boolean; noRound?: boolean }) {
-    const { videoRef } = useVideo({ trackId: peer.videoTrack });
-    const isAudioEnabled = useHMSStore(selectIsPeerAudioEnabled(peer.id));
+function VideoTile({
+    peer,
+    isLocal,
+    noRound,
+    isActiveSpeaker,
+    isPinned,
+    onTogglePin,
+    videoFit = "cover",
+}: {
+    peer: VideoPeer;
+    isLocal?: boolean;
+    noRound?: boolean;
+    isActiveSpeaker?: boolean;
+    isPinned?: boolean;
+    onTogglePin?: () => void;
+    videoFit?: "cover" | "contain";
+}) {
+    const { videoRef } = useVideoTrack(peer.videoTrack);
+    const { isPeerAudioEnabled } = useVideoRoom();
+    const isAudioEnabled = isPeerAudioEnabled(peer.id);
     const hasVideo = !!peer.videoTrack;
     const initials = (peer.name || "?").charAt(0).toUpperCase();
+    const emphasisClass = isPinned
+        ? "ring-[3px] ring-[#c4a57b] shadow-[0_0_18px_rgba(196,165,123,0.42)]"
+        : isActiveSpeaker
+            ? "ring-[3px] ring-green-400 shadow-[0_0_16px_rgba(74,222,128,0.4)]"
+            : isLocal
+                ? "ring-2 ring-[#414141]"
+                : "";
 
     return (
-        <div className={`relative w-full h-full bg-gray-900 overflow-hidden ${noRound ? "" : "rounded-2xl"} ${isLocal ? "ring-2 ring-[#414141]" : ""}`}>
+        <div className={`relative w-full h-full bg-gray-900 overflow-hidden transition-shadow duration-300 ${noRound ? "" : "rounded-2xl"} ${emphasisClass}`}>
             <video
                 ref={videoRef}
                 autoPlay
                 muted
                 playsInline
-                className={`w-full h-full object-cover ${!hasVideo ? "hidden" : ""}`}
+                className={`pointer-events-none h-full w-full ${videoFit === "contain" ? "object-contain" : "object-cover"} ${!hasVideo ? "hidden" : ""}`}
             />
+            {onTogglePin && (
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-black/45 via-black/10 to-transparent" />
+            )}
+            {onTogglePin && (
+                <TilePinButton
+                    isPinned={isPinned}
+                    label={isPinned ? `Unpin ${peer.name || "participant"} video` : `Pin ${peer.name || "participant"} video`}
+                    onClick={onTogglePin}
+                />
+            )}
             {!hasVideo && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
                     <div className="w-16 h-16 rounded-full bg-[#414141]/30 border-2 border-[#414141]/50 flex items-center justify-center">
@@ -108,10 +137,16 @@ function VideoTile({ peer, isLocal, noRound }: { peer: HMSPeer; isLocal?: boolea
 }
 
 function ScreenShareView({ trackId, peerName, noRound }: { trackId: string; peerName?: string; noRound?: boolean }) {
-    const { videoRef } = useVideo({ trackId });
+    const { videoRef } = useVideoTrack(trackId);
     return (
         <div className={`relative w-full h-full bg-black overflow-hidden ${noRound ? "" : "rounded-2xl"}`}>
-            <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-contain" />
+            <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                className="pointer-events-none h-full w-full object-contain"
+            />
             <div className="absolute bottom-2 left-2">
                 <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-white bg-black/60 backdrop-blur-sm rounded-lg">
                     <MonitorUp className="w-3 h-3" />
@@ -145,6 +180,45 @@ function EmojiOverlay({ emojis }: { emojis: FloatingEmoji[] }) {
     );
 }
 
+function StagePinnedBadge({ label }: { label: string }) {
+    return (
+        <div className="absolute left-3 top-3 z-10">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-black/65 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm">
+                <Pin className="h-3 w-3" />
+                {label}
+            </span>
+        </div>
+    );
+}
+
+function TilePinButton({
+    isPinned,
+    label,
+    onClick,
+}: {
+    isPinned?: boolean;
+    label: string;
+    onClick: () => void;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={(event) => {
+                event.stopPropagation();
+                onClick();
+            }}
+            aria-label={label}
+            className={`absolute right-1.5 top-1.5 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border shadow-md backdrop-blur-sm transition-colors ${
+                isPinned
+                    ? "border-white/20 bg-[#c4a57b] text-white shadow-[0_10px_22px_rgba(196,165,123,0.35)]"
+                    : "border-[#f1ead6] bg-[#fff9ec]/95 text-[#414141] hover:bg-white"
+            }`}
+        >
+            <Pin className="h-3.5 w-3.5" />
+        </button>
+    );
+}
+
 function ChatPanel({
     messages,
     onSend,
@@ -169,32 +243,37 @@ function ChatPanel({
     };
 
     return (
-        <div className="flex flex-col h-full bg-white rounded-t-2xl sm:rounded-2xl border border-[#e5e5e5] overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#e5e5e5]">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-t-2xl border border-[#e5e5e5] bg-white sm:rounded-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-[#e5e5e5] px-4 py-3">
                 <span className="font-bold text-[#414141]">Chat</span>
                 <button onClick={onClose} className="p-1 rounded-lg hover:bg-[#f5f5f5] transition-colors">
                     <X className="w-5 h-5 text-[#737373]" />
                 </button>
             </div>
-            <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3 scrollbar-thin">
+            <div
+                ref={scrollRef}
+                className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-3 space-y-3 scrollbar-thin"
+            >
                 {messages.length === 0 && (
                     <p className="text-sm text-[#737373] text-center py-8">No messages yet</p>
                 )}
                 {messages.map((msg) => (
-                    <div key={msg.id}>
-                        <span className="text-xs font-semibold text-[#c4a57b]">{msg.sender}</span>
-                        <p className="text-sm text-[#414141] leading-relaxed">{msg.text}</p>
+                    <div key={msg.id} className="min-w-0 overflow-hidden">
+                        <span className="block truncate text-xs font-semibold text-[#c4a57b]">{msg.sender}</span>
+                        <p className="break-words whitespace-pre-wrap text-sm leading-relaxed text-[#414141]">
+                            {msg.text}
+                        </p>
                     </div>
                 ))}
             </div>
-            <div className="flex items-center gap-2 px-3 py-3 border-t border-[#e5e5e5]">
+            <div className="flex shrink-0 items-center gap-2 border-t border-[#e5e5e5] px-3 py-3">
                 <input
                     type="text"
                     value={text}
                     onChange={(e) => setText(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSend()}
                     placeholder="Type a message..."
-                    className="flex-1 bg-[#f5f5f5] rounded-xl px-3 py-2.5 text-sm text-[#414141] placeholder:text-[#a8a8a8] outline-none focus:ring-1 focus:ring-[#414141]/20"
+                    className="min-w-0 flex-1 rounded-xl bg-[#f5f5f5] px-3 py-2.5 text-sm text-[#414141] outline-none placeholder:text-[#a8a8a8] focus:ring-1 focus:ring-[#414141]/20"
                 />
                 <button
                     onClick={handleSend}
@@ -212,7 +291,7 @@ function ChatPanel({
 
 // ─── Reaction emojis ─────────────────────────────────────────────────────────
 
-const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "👏", "🎉"];
+const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "👏", "🎉", "❓"];
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
@@ -225,14 +304,21 @@ export default function LiveSessionClient() {
     // Query client for cache invalidation
     const queryClient = useQueryClient();
 
-    // HMS hooks
-    const hmsActions = useHMSActions();
-    const peers = useHMSStore(selectPeers);
-    const localPeer = useHMSStore(selectLocalPeer);
-    const isAudioEnabled = useHMSStore(selectIsLocalAudioEnabled);
-    const roomState = useHMSStore(selectRoomState);
-    const notification = useHMSNotifications();
-    const { error: autoplayError, unblockAudio, resetError: resetAutoplayError } = useAutoplayError();
+    // Video provider hooks
+    const {
+        peers,
+        localPeer,
+        isLocalAudioEnabled: isAudioEnabled,
+        isLocalVideoEnabled: isVideoEnabled,
+        roomState,
+        dominantSpeaker,
+        isPeerAudioEnabled,
+        actions,
+        notification,
+        autoplayError,
+        unblockAudio,
+        resetAutoplayError,
+    } = useVideoRoom();
 
     // State
     const [connectionState, setConnectionState] = useState<ConnectionState>("loading");
@@ -249,6 +335,7 @@ export default function LiveSessionClient() {
     );
     const [micPermissionNeedsSettings, setMicPermissionNeedsSettings] = useState(false);
     const [isRetryingMicPermission, setIsRetryingMicPermission] = useState(false);
+    const [pinnedPeerId, setPinnedPeerId] = useState<string | null>(null);
 
     // Landscape / fullscreen controls
     const [isLandscape, setIsLandscape] = useState(false);
@@ -296,6 +383,36 @@ export default function LiveSessionClient() {
 
     // Other participants (not broadcaster, not local)
     const participantPeers = peers.filter((p) => p !== broadcasterPeer && !p.isLocal);
+    const defaultPinnedPeerId = broadcasterPeer?.id ?? null;
+    const activePinnedPeerId = pinnedPeerId ?? defaultPinnedPeerId;
+    const pinnedPeer = pinnedPeerId
+        ? (localPeer?.id === pinnedPeerId ? localPeer : peers.find((peer) => peer.id === pinnedPeerId)) ?? null
+        : null;
+    const activeStagePeerId = pinnedPeer?.id ?? defaultPinnedPeerId;
+    const participantStripPeers = [
+        ...(broadcasterPeer && broadcasterPeer.id !== activeStagePeerId ? [broadcasterPeer] : []),
+        ...(canPublishAudio && localPeer && localPeer.id !== activeStagePeerId ? [localPeer] : []),
+        ...[...participantPeers].sort((a, b) => {
+            if (dominantSpeaker) {
+                if (a.id === dominantSpeaker.id && b.id !== dominantSpeaker.id) return -1;
+                if (b.id === dominantSpeaker.id && a.id !== dominantSpeaker.id) return 1;
+            }
+
+            return 0;
+        }).filter((peer) => peer.id !== activeStagePeerId),
+    ];
+    const hasParticipantStrip = participantStripPeers.length > 0;
+
+    useEffect(() => {
+        if (!pinnedPeerId) {
+            return;
+        }
+
+        const stillExists = localPeer?.id === pinnedPeerId || peers.some((peer) => peer.id === pinnedPeerId);
+        if (!stillExists) {
+            setPinnedPeerId(null);
+        }
+    }, [localPeer?.id, peers, pinnedPeerId]);
 
     // ─── Token polling → join flow ──────────────────────────────────────────
 
@@ -322,7 +439,7 @@ export default function LiveSessionClient() {
                     const userStr = typeof window !== "undefined" ? localStorage.getItem("user") : null;
                     const user = userStr ? JSON.parse(userStr) : { name: "Student" };
 
-                    await hmsActions.join({
+                    await actions.join({
                         authToken: tokenData.token,
                         userName: user.name || "Student",
                     });
@@ -374,7 +491,7 @@ export default function LiveSessionClient() {
             setConnectionState("loading");
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tokenData, error, isError, isFetching, hmsActions, params.classId]);
+    }, [tokenData, error, isError, isFetching, actions, params.classId]);
 
     // Waiting room polling
     useEffect(() => {
@@ -389,9 +506,9 @@ export default function LiveSessionClient() {
 
     // Sync room state
     useEffect(() => {
-        if (roomState === HMSRoomState.Connected) {
+        if (roomState === VideoRoomState.Connected) {
             setConnectionState("connected");
-        } else if (roomState === HMSRoomState.Disconnected && connectionState === "connected") {
+        } else if (roomState === VideoRoomState.Disconnected && connectionState === "connected") {
             setConnectionState("disconnected");
         }
     }, [roomState, connectionState]);
@@ -399,7 +516,7 @@ export default function LiveSessionClient() {
     // Cleanup on unmount
     useEffect(() => {
         return () => {
-            hmsActions.leave().catch(() => {
+            actions.leave().catch(() => {
                 // Ignore teardown errors during navigation/reload
             });
         };
@@ -412,10 +529,32 @@ export default function LiveSessionClient() {
         const previousRootOverflow = root.style.overflow;
         const previousBodyOverflow = body.style.overflow;
         const previousBodyOverscroll = body.style.overscrollBehavior;
+        const previousBodyTouchAction = body.style.touchAction;
 
         root.style.overflow = "hidden";
         body.style.overflow = "hidden";
         body.style.overscrollBehavior = "none";
+        body.style.touchAction = "manipulation";
+
+        const getStableViewportHeight = () => {
+            const fallbackHeight = Math.round(
+                Math.max(window.innerHeight, document.documentElement.clientHeight)
+            );
+            const visualViewport = window.visualViewport;
+
+            if (!visualViewport) {
+                return fallbackHeight;
+            }
+
+            const visualViewportScale = visualViewport.scale ?? 1;
+
+            // Ignore transient scaled viewport readings during iOS rotation.
+            if (Math.abs(visualViewportScale - 1) > 0.02) {
+                return fallbackHeight;
+            }
+
+            return Math.round(Math.max(fallbackHeight, visualViewport.height));
+        };
 
         const syncViewportHeight = () => {
             if (viewportSyncFrameRef.current !== null) {
@@ -423,9 +562,8 @@ export default function LiveSessionClient() {
             }
 
             viewportSyncFrameRef.current = window.requestAnimationFrame(() => {
-                const nextHeight = Math.round(window.visualViewport?.height ?? window.innerHeight);
+                const nextHeight = getStableViewportHeight();
                 setViewportHeight((prev) => (prev === nextHeight ? prev : nextHeight));
-                window.scrollTo(0, 0);
             });
         };
 
@@ -433,8 +571,9 @@ export default function LiveSessionClient() {
             syncViewportHeight();
             viewportSyncTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
             viewportSyncTimeoutsRef.current = [
-                window.setTimeout(syncViewportHeight, 80),
-                window.setTimeout(syncViewportHeight, 240),
+                window.setTimeout(syncViewportHeight, 120),
+                window.setTimeout(syncViewportHeight, 320),
+                window.setTimeout(syncViewportHeight, 650),
             ];
         };
 
@@ -443,13 +582,11 @@ export default function LiveSessionClient() {
         window.addEventListener("resize", syncViewportHeight);
         window.addEventListener("orientationchange", scheduleViewportSettling);
         window.visualViewport?.addEventListener("resize", scheduleViewportSettling);
-        window.visualViewport?.addEventListener("scroll", syncViewportHeight);
 
         return () => {
             window.removeEventListener("resize", syncViewportHeight);
             window.removeEventListener("orientationchange", scheduleViewportSettling);
             window.visualViewport?.removeEventListener("resize", scheduleViewportSettling);
-            window.visualViewport?.removeEventListener("scroll", syncViewportHeight);
 
             if (viewportSyncFrameRef.current !== null) {
                 window.cancelAnimationFrame(viewportSyncFrameRef.current);
@@ -461,6 +598,7 @@ export default function LiveSessionClient() {
             root.style.overflow = previousRootOverflow;
             body.style.overflow = previousBodyOverflow;
             body.style.overscrollBehavior = previousBodyOverscroll;
+            body.style.touchAction = previousBodyTouchAction;
         };
     }, []);
 
@@ -500,6 +638,22 @@ export default function LiveSessionClient() {
         }
     }, [isLandscape, showControls, resetControlsTimer]);
 
+    const togglePinnedPeer = useCallback((peer: VideoPeer | null | undefined) => {
+        if (!peer) {
+            return;
+        }
+
+        setPinnedPeerId((currentPinnedPeerId) => currentPinnedPeerId === peer.id ? null : peer.id);
+    }, []);
+
+    useEffect(() => {
+        if (!isLandscape || connectionState !== "connected") {
+            return;
+        }
+
+        resetControlsTimer();
+    }, [connectionState, isLandscape, resetControlsTimer]);
+
     // Clear timer on unmount
     useEffect(() => {
         return () => {
@@ -525,7 +679,7 @@ export default function LiveSessionClient() {
     useEffect(() => {
         if (!notification) return;
 
-        if (notification.type === HMSNotificationTypes.REMOVED_FROM_ROOM) {
+        if (notification.type === VideoNotificationType.RemovedFromRoom) {
             // Immediately nuke the cached token so re-navigation can't reuse it
             queryClient.removeQueries({ queryKey: liveClassQueryKeys.token(params.classId) });
 
@@ -540,7 +694,7 @@ export default function LiveSessionClient() {
             return;
         }
 
-        if (notification.type === HMSNotificationTypes.ROOM_ENDED) {
+        if (notification.type === VideoNotificationType.RoomEnded) {
             queryClient.removeQueries({ queryKey: liveClassQueryKeys.token(params.classId) });
             setErrorMessage("The live session has ended.");
             setConnectionState("removed");
@@ -553,8 +707,8 @@ export default function LiveSessionClient() {
     useEffect(() => {
         if (!notification) return;
 
-        if (notification.type === HMSNotificationTypes.ROLE_UPDATED) {
-            const peer = notification.data as HMSPeer | undefined;
+        if (notification.type === VideoNotificationType.RoleUpdated) {
+            const peer = notification.data as VideoPeer | undefined;
             if (!peer?.isLocal || !peer.roleName) {
                 return;
             }
@@ -568,8 +722,8 @@ export default function LiveSessionClient() {
             return;
         }
 
-        if (notification.type === HMSNotificationTypes.NEW_MESSAGE) {
-            const msg = notification.data;
+        if (notification.type === VideoNotificationType.NewMessage) {
+            const msg = notification.data as { id?: string; message: string; senderName?: string; type?: string; time?: number | Date } | undefined;
             if (!msg) return;
 
             if (msg.type === "message_deleted") {
@@ -591,6 +745,9 @@ export default function LiveSessionClient() {
                 } catch { /* ignore */ }
                 return;
             }
+
+            // Camera request from teacher — handled in a separate effect
+            if (msg.type === "request_video") return;
 
             const newMsg: ChatMessage = {
                 id: msg.id || Date.now().toString(),
@@ -631,34 +788,66 @@ export default function LiveSessionClient() {
     const enableMicrophone = useCallback(async () => {
         try {
             await requestMicrophonePermission();
-            await hmsActions.setLocalAudioEnabled(true);
+            await actions.setLocalAudioEnabled(true);
             setShowMicPermissionDialog(false);
             setMicPermissionNeedsSettings(false);
         } catch (err) {
             console.error("Failed to enable microphone:", err);
             showMicrophonePermissionError(err);
         }
-    }, [hmsActions, requestMicrophonePermission, showMicrophonePermissionError]);
+    }, [actions, requestMicrophonePermission, showMicrophonePermissionError]);
 
+    const requestCameraPermission = useCallback(async () => {
+        if (!navigator.mediaDevices?.getUserMedia) {
+            throw new Error("This browser does not support camera access.");
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream.getTracks().forEach((track) => track.stop());
+    }, []);
+
+    const enableCamera = useCallback(async () => {
+        try {
+            await requestCameraPermission();
+            await actions.setLocalVideoEnabled(true);
+        } catch (err) {
+            console.error("Failed to enable camera:", err);
+            toast.error("Could not turn on camera. Please allow camera access in your browser settings.");
+        }
+    }, [actions, requestCameraPermission]);
+
+    // Track previous role to detect transitions
+    const prevCanPublishRef = useRef(canPublishAudio);
+
+    // When publishing rights change, auto-enable or force-disable mic + camera
     useEffect(() => {
-        if (!notification) {
-            return;
-        }
+        const wasPublishing = prevCanPublishRef.current;
+        prevCanPublishRef.current = canPublishAudio;
 
-        if (notification.type !== HMSNotificationTypes.ROLE_UPDATED) {
-            return;
-        }
-
-        const peer = notification.data as HMSPeer | undefined;
-        if (peer?.isLocal && peer.roleName === "viewer-on-stage" && !isAudioEnabled) {
+        if (canPublishAudio && !wasPublishing) {
+            // Promoted to stage — enable mic + camera
             void enableMicrophone();
+            void enableCamera();
+        } else if (!canPublishAudio && wasPublishing) {
+            // Demoted to viewer — force disable mic + camera
+            void actions.setLocalAudioEnabled(false).catch(() => {});
+            void actions.setLocalVideoEnabled(false).catch(() => {});
         }
-    }, [notification, isAudioEnabled, enableMicrophone]);
+    }, [canPublishAudio, enableMicrophone, enableCamera, actions]);
+
+    // Handle teacher's camera request
+    useEffect(() => {
+        if (!notification) return;
+        if (notification.type !== VideoNotificationType.NewMessage) return;
+        const msg = notification.data as { type?: string } | undefined;
+        if (!msg || msg.type !== "request_video") return;
+        toast.info("Your teacher requested you to turn on your camera");
+        void enableCamera();
+    }, [notification, enableCamera]);
 
     const handleToggleMute = useCallback(async () => {
         try {
             if (isAudioEnabled) {
-                await hmsActions.setLocalAudioEnabled(false);
+                await actions.setLocalAudioEnabled(false);
                 return;
             }
 
@@ -666,20 +855,32 @@ export default function LiveSessionClient() {
         } catch (err) {
             console.error("Failed to toggle audio:", err);
         }
-    }, [hmsActions, isAudioEnabled, enableMicrophone]);
+    }, [actions, isAudioEnabled, enableMicrophone]);
+
+    const handleToggleCamera = useCallback(async () => {
+        try {
+            if (isVideoEnabled) {
+                await actions.setLocalVideoEnabled(false);
+            } else {
+                await enableCamera();
+            }
+        } catch (err) {
+            console.error("Failed to toggle camera:", err);
+        }
+    }, [actions, isVideoEnabled, enableCamera]);
 
     const handleToggleHand = useCallback(async () => {
         try {
             if (isHandRaised) {
-                await hmsActions.lowerLocalPeerHand();
+                await actions.lowerHand();
             } else {
-                await hmsActions.raiseLocalPeerHand();
+                await actions.raiseHand();
             }
             setIsHandRaised(!isHandRaised);
         } catch (err) {
             console.error("Failed to toggle hand raise:", err);
         }
-    }, [hmsActions, isHandRaised]);
+    }, [actions, isHandRaised]);
 
     const handleSendChat = useCallback((text: string) => {
         const newMsg: ChatMessage = {
@@ -690,8 +891,8 @@ export default function LiveSessionClient() {
             isLocal: true,
         };
         setChatMessages((prev) => [...prev, newMsg]);
-        hmsActions.sendBroadcastMessage(text);
-    }, [hmsActions, localPeer?.name]);
+        void actions.sendMessage(text);
+    }, [actions, localPeer?.name]);
 
     const handleSendReaction = useCallback((emoji: string) => {
         const now = Date.now();
@@ -701,20 +902,20 @@ export default function LiveSessionClient() {
         }
 
         reactionCooldownUntilRef.current = now + 1200;
-        hmsActions.sendBroadcastMessage(JSON.stringify({ emoji }), "emoji_reaction");
+        void actions.sendMessage(JSON.stringify({ emoji }), "emoji_reaction");
         triggerEmoji(emoji, localPeer?.name || "You");
         setShowEmojiPicker(false);
-    }, [hmsActions, localPeer?.name, triggerEmoji]);
+    }, [actions, localPeer?.name, triggerEmoji]);
 
     const handleLeave = useCallback(async () => {
         queryClient.removeQueries({ queryKey: liveClassQueryKeys.token(params.classId) });
         try {
-            await hmsActions.leave();
+            await actions.leave();
         } catch (err) {
             console.warn("Failed to leave room:", err);
         }
         router.push("/live");
-    }, [hmsActions, router, queryClient, params.classId]);
+    }, [actions, router, queryClient, params.classId]);
 
     const handleToggleChat = useCallback(() => {
         setShowChat((prev) => {
@@ -841,7 +1042,20 @@ export default function LiveSessionClient() {
     // Shared video stage content
     const renderVideoStage = (noRound?: boolean) => (
         <>
-            {hasScreenShare && screenShareTrackId ? (
+            {pinnedPeer ? (
+                <div className={`relative w-full h-full overflow-hidden ${noRound ? "bg-black" : "rounded-2xl bg-[#f5f0dc]"}`}>
+                    <VideoTile
+                        peer={pinnedPeer}
+                        isLocal={pinnedPeer.isLocal}
+                        noRound={noRound}
+                        isActiveSpeaker={dominantSpeaker?.id === pinnedPeer.id}
+                        isPinned
+                        onTogglePin={() => setPinnedPeerId(null)}
+                        videoFit={noRound ? "contain" : "cover"}
+                    />
+                    <StagePinnedBadge label={`${pinnedPeer.name || "Participant"} pinned`} />
+                </div>
+            ) : hasScreenShare && screenShareTrackId ? (
                 <div className="relative w-full h-full">
                     <ScreenShareView
                         trackId={screenShareTrackId}
@@ -850,13 +1064,20 @@ export default function LiveSessionClient() {
                     />
                     {teacherCameraTrackId && broadcasterPeer && (
                         <div className="absolute top-3 right-3 w-24 h-32 sm:w-28 sm:h-36 rounded-xl overflow-hidden shadow-lg border border-white/20">
-                            <TeacherPiP peer={broadcasterPeer} />
+                            <TeacherPiP peer={broadcasterPeer} onTogglePin={() => togglePinnedPeer(broadcasterPeer)} />
                         </div>
                     )}
                 </div>
             ) : broadcasterPeer ? (
-                <div className={`w-full h-full overflow-hidden bg-[#f5f0dc] ${noRound ? "" : "rounded-2xl"}`}>
-                    <VideoTile peer={broadcasterPeer} noRound={noRound} />
+                <div className={`w-full h-full overflow-hidden ${noRound ? "bg-black" : "rounded-2xl bg-[#f5f0dc]"}`}>
+                    <VideoTile
+                        peer={broadcasterPeer}
+                        noRound={noRound}
+                        isActiveSpeaker={dominantSpeaker?.id === broadcasterPeer.id}
+                        isPinned={activePinnedPeerId === broadcasterPeer.id}
+                        onTogglePin={() => togglePinnedPeer(broadcasterPeer)}
+                        videoFit={noRound ? "contain" : "cover"}
+                    />
                 </div>
             ) : (
                 <div className={`w-full h-full bg-[#f5f0dc] flex items-center justify-center ${noRound ? "" : "rounded-2xl"}`}>
@@ -874,12 +1095,32 @@ export default function LiveSessionClient() {
                 className="relative z-[100] w-full max-w-full overflow-hidden bg-black"
                 style={liveSessionViewportStyle}
             >
-                {/* Fullscreen video — tap to toggle controls */}
-                <div className="absolute inset-0" onClick={handleStageTap}>
-                    <div className="w-full h-full">
-                        {renderVideoStage(true)}
+                {/* Fullscreen stage + split chat */}
+                <div className="absolute inset-0 flex">
+                    <div
+                        className={`${showChat ? "w-1/2" : "w-full"} relative min-w-0 h-full`}
+                        onPointerUp={handleStageTap}
+                    >
+                        <div className="h-full w-full">
+                            {renderVideoStage(true)}
+                        </div>
+                        <EmojiOverlay emojis={floatingEmojis} />
                     </div>
-                    <EmojiOverlay emojis={floatingEmojis} />
+
+                    {showChat && (
+                        <div
+                            className="h-full w-1/2 min-w-0 border-l border-white/10 bg-black/30 pointer-events-auto"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="h-full min-h-0 overflow-hidden">
+                                <ChatPanel
+                                    messages={chatMessages}
+                                    onSend={(text) => { handleSendChat(text); resetControlsTimer(); }}
+                                    onClose={() => setShowChat(false)}
+                                />
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Overlay controls — shown on tap, auto-hide after 4s */}
@@ -890,7 +1131,9 @@ export default function LiveSessionClient() {
                 >
                     {/* Top bar */}
                     <div
-                        className={`absolute top-0 left-0 right-0 flex items-center gap-3 px-4 py-3 bg-black/50 backdrop-blur-sm ${
+                        className={`absolute top-0 left-0 flex items-center gap-3 px-4 py-3 bg-black/50 backdrop-blur-sm ${
+                            showChat ? "right-1/2" : "right-0"
+                        } ${
                             showControls ? "pointer-events-auto" : ""
                         }`}
                         style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
@@ -910,7 +1153,9 @@ export default function LiveSessionClient() {
 
                     {/* On-stage banner in landscape */}
                     {currentRole === "viewer-on-stage" && (
-                        <div className="absolute top-14 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 bg-[#f59e0b]/90 rounded-full pointer-events-auto">
+                        <div className={`absolute top-14 flex items-center gap-2 px-3 py-1.5 bg-[#f59e0b]/90 rounded-full pointer-events-auto ${
+                            showChat ? "left-1/4 -translate-x-1/2" : "left-1/2 -translate-x-1/2"
+                        }`}>
                             <Mic className="w-3.5 h-3.5 text-white" />
                             <span className="text-xs font-semibold text-white">
                                 {isAudioEnabled ? "On stage" : "On stage - turn on mic"}
@@ -918,9 +1163,36 @@ export default function LiveSessionClient() {
                         </div>
                     )}
 
+                    {showControls && hasParticipantStrip && (
+                        <div
+                            className={`absolute bottom-28 z-20 pointer-events-auto ${
+                                showChat ? "left-3 right-[calc(50%+0.75rem)]" : "left-3 right-3"
+                            }`}
+                        >
+                            <div className="flex gap-2 overflow-x-auto rounded-2xl bg-black/40 p-2 backdrop-blur-sm scrollbar-none">
+                                {participantStripPeers.map((peer) => (
+                                    <div key={peer.id} className="h-16 w-16 shrink-0">
+                                        <VideoTile
+                                            peer={peer}
+                                            isLocal={peer.isLocal}
+                                            isActiveSpeaker={dominantSpeaker?.id === peer.id}
+                                            isPinned={activePinnedPeerId === peer.id}
+                                            onTogglePin={() => {
+                                                togglePinnedPeer(peer);
+                                                resetControlsTimer();
+                                            }}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Bottom controls */}
                     <div
-                        className={`absolute bottom-0 left-0 right-0 bg-black/50 backdrop-blur-sm ${
+                        className={`absolute bottom-0 left-0 bg-black/50 backdrop-blur-sm ${
+                            showChat ? "right-1/2" : "right-0"
+                        } ${
                             showControls ? "pointer-events-auto" : ""
                         }`}
                         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
@@ -974,6 +1246,17 @@ export default function LiveSessionClient() {
                                 </button>
                             )}
 
+                            {canPublishAudio && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleToggleCamera(); resetControlsTimer(); }}
+                                    className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
+                                        isVideoEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white"
+                                    }`}
+                                >
+                                    {isVideoEnabled ? <Video className="w-4.5 h-4.5" /> : <VideoOff className="w-4.5 h-4.5" />}
+                                </button>
+                            )}
+
                             {!canPublishAudio && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleToggleHand(); resetControlsTimer(); }}
@@ -1007,37 +1290,38 @@ export default function LiveSessionClient() {
                             </button>
                         </div>
                     </div>
-
-                    {/* Chat panel in landscape — right side overlay */}
-                    {showChat && (
-                        <div
-                            className="absolute top-0 right-0 bottom-0 w-[45%] max-w-xs z-20 pointer-events-auto"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="h-full pt-14 pb-32">
-                                <ChatPanel
-                                    messages={chatMessages}
-                                    onSend={(text) => { handleSendChat(text); resetControlsTimer(); }}
-                                    onClose={() => setShowChat(false)}
-                                />
-                            </div>
-                        </div>
-                    )}
                 </div>
 
-                {canPublishAudio && !showControls && (
-                    <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 pointer-events-auto">
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                void handleToggleMute();
-                            }}
-                            className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
-                                isAudioEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white backdrop-blur-sm"
-                            }`}
-                        >
-                            {isAudioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
-                        </button>
+                {!showControls && (
+                    <div className={`absolute bottom-4 z-20 flex items-center gap-3 pointer-events-auto ${
+                        showChat ? "left-1/4 -translate-x-1/2" : "left-1/2 -translate-x-1/2"
+                    }`}>
+                        {canPublishAudio && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleToggleMute();
+                                }}
+                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
+                                    isAudioEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white backdrop-blur-sm"
+                                }`}
+                            >
+                                {isAudioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+                            </button>
+                        )}
+                        {canPublishAudio && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleToggleCamera();
+                                }}
+                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
+                                    isVideoEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white backdrop-blur-sm"
+                                }`}
+                            >
+                                {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+                            </button>
+                        )}
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -1057,7 +1341,7 @@ export default function LiveSessionClient() {
 
     return (
         <div
-            className="flex w-full max-w-full flex-col overflow-hidden bg-[#fffbe7]"
+            className="flex h-full min-h-screen w-full max-w-full flex-col overflow-hidden bg-[#fffbe7]"
             style={liveSessionViewportStyle}
         >
             {/* Header */}
@@ -1083,7 +1367,7 @@ export default function LiveSessionClient() {
                 <div className="flex items-center gap-2 px-4 py-2 bg-[#f59e0b] shrink-0">
                     <Mic className="w-4 h-4 text-white" />
                     <span className="text-sm font-semibold text-white">
-                        {isAudioEnabled ? "You&apos;re on stage — Mic active" : "You&apos;re on stage — turn on your mic to speak"}
+                        {isAudioEnabled ? "You're on stage — Mic active" : "You're on stage — turn on your mic to speak"}
                     </span>
                 </div>
             )}
@@ -1095,7 +1379,7 @@ export default function LiveSessionClient() {
 
                 {/* Chat overlay on mobile / sidebar on larger screens */}
                 {showChat && (
-                    <div className="absolute inset-0 sm:inset-auto sm:right-0 sm:top-0 sm:bottom-0 sm:w-80 z-40">
+                    <div className="absolute inset-0 z-40 min-h-0 overflow-hidden sm:inset-auto sm:bottom-0 sm:right-0 sm:top-0 sm:w-80">
                         <ChatPanel
                             messages={chatMessages}
                             onSend={handleSendChat}
@@ -1105,13 +1389,19 @@ export default function LiveSessionClient() {
                 )}
             </div>
 
-            {/* Participant strip */}
-            {participantPeers.length > 0 && (
+            {/* Participant strip — local peer (when on stage) + others */}
+            {hasParticipantStrip && (
                 <div className="shrink-0 px-3 pb-2">
                     <div className="flex gap-2 overflow-x-auto scrollbar-none py-1">
-                        {participantPeers.map((peer) => (
+                        {participantStripPeers.map((peer) => (
                             <div key={peer.id} className="w-20 h-20 shrink-0">
-                                <VideoTile peer={peer} />
+                                <VideoTile
+                                    peer={peer}
+                                    isLocal={peer.isLocal}
+                                    isActiveSpeaker={dominantSpeaker?.id === peer.id}
+                                    isPinned={activePinnedPeerId === peer.id}
+                                    onTogglePin={() => togglePinnedPeer(peer)}
+                                />
                             </div>
                         ))}
                     </div>
@@ -1164,6 +1454,17 @@ export default function LiveSessionClient() {
                         }`}
                     >
                         {isAudioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+                    </button>
+                )}
+
+                {canPublishAudio && (
+                    <button
+                        onClick={handleToggleCamera}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
+                            isVideoEnabled ? "bg-[#c4a57b] text-white" : "bg-[#e7e7e7] text-[#767676]"
+                        }`}
+                    >
+                        {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
                     </button>
                 )}
 
@@ -1253,13 +1554,22 @@ export default function LiveSessionClient() {
 }
 
 // Small PiP component for teacher camera during screen share
-function TeacherPiP({ peer }: { peer: HMSPeer }) {
-    const { videoRef } = useVideo({ trackId: peer.videoTrack });
+function TeacherPiP({ peer, onTogglePin }: { peer: VideoPeer; onTogglePin?: () => void }) {
+    const { videoRef } = useVideoTrack(peer.videoTrack);
     const hasVideo = !!peer.videoTrack;
 
     return (
-        <div className="w-full h-full bg-gray-900">
+        <div className="relative w-full h-full bg-gray-900">
             <video ref={videoRef} autoPlay muted playsInline className={`w-full h-full object-cover ${!hasVideo ? "hidden" : ""}`} />
+            {onTogglePin && (
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-black/45 via-black/10 to-transparent" />
+            )}
+            {onTogglePin && (
+                <TilePinButton
+                    label={`Pin ${peer.name || "teacher"} video`}
+                    onClick={onTogglePin}
+                />
+            )}
             {!hasVideo && (
                 <div className="w-full h-full flex items-center justify-center">
                     <span className="text-lg font-semibold text-white/80">{(peer.name || "T").charAt(0).toUpperCase()}</span>

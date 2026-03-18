@@ -30,6 +30,11 @@ export interface LoginPayload {
   appPlatform?: "mobile";
 }
 
+export interface FirebaseLoginPayload {
+  idToken: string;
+  phoneNumber?: string;
+}
+
 export interface VerifyEmailOtpPayload {
   email: string;
   otp: string;

@@ -3,122 +3,137 @@ import { ImageResponse } from "next/og";
 
 type PwaIconVariant = "default" | "maskable" | "apple";
 
+function CjEconomicsMark({
+  size,
+  background,
+  foreground,
+}: {
+  size: number;
+  background: string;
+  foreground: string;
+}) {
+  const monogramWidth = Math.round(size * 0.68);
+  const monogramHeight = Math.round(size * 0.68);
+  const cFontSize = Math.round(size * 0.7);
+  const jFontSize = Math.round(size * 0.54);
+  const economicsFontSize = Math.max(18, Math.round(size * 0.13));
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        position: "relative",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        width: size,
+        height: size,
+        background,
+        color: foreground,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          position: "relative",
+          width: monogramWidth,
+          height: monogramHeight,
+          alignItems: "flex-start",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            position: "absolute",
+            left: Math.round(monogramWidth * 0.02),
+            top: Math.round(monogramHeight * 0.03),
+            fontSize: cFontSize,
+            fontWeight: 500,
+            lineHeight: 0.78,
+            letterSpacing: "-0.08em",
+            fontFamily: "Georgia, Times New Roman, serif",
+            color: foreground,
+          }}
+        >
+          C
+        </div>
+        <div
+          style={{
+            display: "flex",
+            position: "absolute",
+            left: Math.round(monogramWidth * 0.47),
+            top: Math.round(monogramHeight * 0.32),
+            fontSize: jFontSize,
+            fontWeight: 600,
+            lineHeight: 0.78,
+            letterSpacing: "-0.08em",
+            fontFamily: "Georgia, Times New Roman, serif",
+            color: foreground,
+          }}
+        >
+          J
+        </div>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          marginTop: Math.round(size * 0.015),
+          fontSize: economicsFontSize,
+          fontWeight: 700,
+          letterSpacing: "0.04em",
+          lineHeight: 1,
+          fontFamily: "Georgia, Times New Roman, serif",
+          color: foreground,
+        }}
+      >
+        ECONOMICS
+      </div>
+    </div>
+  );
+}
+
 export function createPwaIcon(size: number, variant: PwaIconVariant = "default") {
-  const padding =
-    variant === "maskable" ? Math.round(size * 0.18) : variant === "apple" ? Math.round(size * 0.12) : Math.round(size * 0.1);
-  const brandMarkSize = Math.round(size * 0.34);
-  const livePillFontSize = Math.round(size * 0.08);
-  const titleFontSize = Math.round(size * 0.16);
-  const subtitleFontSize = Math.round(size * 0.075);
+  const isMaskable = variant === "maskable";
+  const isApple = variant === "apple";
+  const background = "#143f46";
+  const foreground = "#ead1b0";
+  const shellPadding = isMaskable
+    ? Math.round(size * 0.16)
+    : isApple
+      ? Math.round(size * 0.13)
+      : Math.round(size * 0.11);
+  const logoScale = isMaskable ? 0.7 : isApple ? 0.76 : 0.8;
+  const logoSize = Math.round(size * logoScale);
 
   return new ImageResponse(
     (
       <div
         style={{
           display: "flex",
-          height: "100%",
           width: "100%",
-          padding,
-          background:
-            "radial-gradient(circle at top right, rgba(202,218,178,0.42), rgba(202,218,178,0) 42%), linear-gradient(135deg, #1f2b13 0%, #283618 52%, #3b5722 100%)",
-          color: "#fffbe7",
-          position: "relative",
+          height: "100%",
+          padding: shellPadding,
+          background,
+          color: foreground,
           overflow: "hidden",
           fontFamily: "ui-sans-serif, system-ui, sans-serif",
         }}
       >
         <div
           style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 55%)",
-          }}
-        />
-        <div
-          style={{
-            position: "relative",
             display: "flex",
             width: "100%",
             height: "100%",
-            flexDirection: "column",
-            justifyContent: "space-between",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "space-between",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: brandMarkSize,
-                height: brandMarkSize,
-                borderRadius: Math.round(brandMarkSize * 0.28),
-                background: "#fffbe7",
-                color: "#283618",
-                fontSize: Math.round(size * 0.15),
-                fontWeight: 800,
-                letterSpacing: "-0.04em",
-                boxShadow: "0 18px 36px rgba(0,0,0,0.16)",
-              }}
-            >
-              CJ
-            </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 9999,
-                padding: `${Math.round(size * 0.03)}px ${Math.round(size * 0.055)}px`,
-                background: "rgba(255,255,255,0.12)",
-                border: "1px solid rgba(255,255,255,0.18)",
-                fontSize: livePillFontSize,
-                fontWeight: 700,
-                letterSpacing: "0.12em",
-              }}
-            >
-              LIVE
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: Math.round(size * 0.03),
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                fontSize: titleFontSize,
-                fontWeight: 800,
-                letterSpacing: "-0.04em",
-                lineHeight: 1,
-              }}
-            >
-              Student
-            </div>
-            <div
-              style={{
-                display: "flex",
-                fontSize: subtitleFontSize,
-                fontWeight: 600,
-                letterSpacing: "0.12em",
-                opacity: 0.92,
-                textTransform: "uppercase",
-              }}
-            >
-              School Dost
-            </div>
-          </div>
+          <CjEconomicsMark
+            size={logoSize}
+            background={background}
+            foreground={foreground}
+          />
         </div>
       </div>
     ),

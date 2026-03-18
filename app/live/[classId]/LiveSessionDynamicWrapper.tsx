@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { HMSRoomProvider } from "@100mslive/react-sdk";
+import { VideoProvider } from "@/hooks/video-provider";
 
 const LiveSessionClient = dynamic(() => import("./LiveSessionClient"), {
     ssr: false,
@@ -9,8 +9,8 @@ const LiveSessionClient = dynamic(() => import("./LiveSessionClient"), {
 
 export default function LiveSessionDynamicWrapper() {
     return (
-        <HMSRoomProvider>
+        <VideoProvider>
             <LiveSessionClient />
-        </HMSRoomProvider>
+        </VideoProvider>
     );
 }

@@ -1,6 +1,12 @@
 import { isAxiosError } from "axios";
 
-import { type AuthSession, type AuthUser, type LoginPayload, type VerifyEmailOtpPayload } from "@/lib/auth/types";
+import {
+  type AuthSession,
+  type AuthUser,
+  type FirebaseLoginPayload,
+  type LoginPayload,
+  type VerifyEmailOtpPayload,
+} from "@/lib/auth/types";
 import { apiClient } from "@/lib/api/config";
 
 interface AuthResponseBody {
@@ -13,6 +19,13 @@ interface AuthResponseBody {
   code?: string;
   success?: boolean;
   alreadyVerified?: boolean;
+}
+
+interface ProfileUpdateResponseBody {
+  success?: boolean;
+  message?: string;
+  error?: string;
+  data?: AuthUser;
 }
 
 export class AuthApiError extends Error {
@@ -95,6 +108,25 @@ export async function login(payload: LoginPayload): Promise<AuthSession> {
   }
 }
 
+export async function firebaseLogin(payload: FirebaseLoginPayload): Promise<AuthSession> {
+  try {
+    const response = await apiClient.post<AuthResponseBody>("/auth/firebase-login", payload);
+    const token = getTokenFromBody(response.data);
+
+    if (!token) {
+      throw new AuthApiError("No token returned from server.");
+    }
+
+    const user =
+      response.data.user ??
+      (await fetchProfileWithHeaders({ Authorization: `Bearer ${token}` }));
+
+    return { token, user };
+  } catch (error) {
+    throw toAuthApiError(error);
+  }
+}
+
 export async function verifyEmailOtp(
   payload: VerifyEmailOtpPayload,
 ): Promise<AuthSession> {
@@ -119,6 +151,20 @@ export async function verifyEmailOtp(
 export async function fetchProfile(): Promise<AuthUser> {
   try {
     return await fetchProfileWithHeaders();
+  } catch (error) {
+    throw toAuthApiError(error);
+  }
+}
+
+export async function updateUserName(userId: string, name: string): Promise<AuthUser | null> {
+  try {
+    const response = await apiClient.put<ProfileUpdateResponseBody>(`/users/${userId}`, { name });
+
+    if (response.data.success === false) {
+      throw new AuthApiError(response.data.error || response.data.message || "Failed to update profile.");
+    }
+
+    return response.data.data ?? null;
   } catch (error) {
     throw toAuthApiError(error);
   }
