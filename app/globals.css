@@ -151,6 +151,74 @@ body {
   scrollbar-width: none;
 }
 
+/* ========== Custom Toast Styling (Sonner) ========== */
+
+[data-sonner-toaster] {
+  z-index: 99999 !important;
+}
+
+[data-sonner-toast] {
+  font-family: inherit !important;
+  background: white !important;
+  border: 1px solid #f3f4f6 !important;
+  border-radius: 10px !important;
+  padding: 10px 14px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+  gap: 8px !important;
+  min-height: unset !important;
+  overflow: hidden !important;
+}
+
+[data-sonner-toast] [data-title] {
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  color: #374151 !important;
+  line-height: 1.3 !important;
+}
+
+[data-sonner-toast] [data-description] {
+  font-size: 12px !important;
+  color: #9ca3af !important;
+  margin-top: 0 !important;
+}
+
+[data-sonner-toast] [data-icon] svg {
+  width: 15px !important;
+  height: 15px !important;
+}
+
+[data-sonner-toast][data-type="success"] [data-icon] svg { color: #16a34a !important; }
+[data-sonner-toast][data-type="error"] [data-icon] svg { color: #dc2626 !important; }
+[data-sonner-toast][data-type="warning"] [data-icon] svg { color: #d97706 !important; }
+[data-sonner-toast][data-type="info"] [data-icon] svg { color: #2563eb !important; }
+
+/* Hide close button — toasts auto-dismiss */
+[data-sonner-toast] [data-close-button] {
+  display: none !important;
+}
+
+/* Timer bar */
+[data-sonner-toast]::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #e5e7eb;
+  transform-origin: left;
+  animation: toast-timer 4s linear forwards;
+}
+[data-sonner-toast][data-type="success"]::after { background: #16a34a; }
+[data-sonner-toast][data-type="error"]::after { background: #dc2626; }
+[data-sonner-toast][data-type="warning"]::after { background: #d97706; }
+[data-sonner-toast][data-type="info"]::after { background: #2563eb; }
+
+@keyframes toast-timer {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
 @keyframes emoji-float {
   0% {
     transform: translateY(60px) scale(1);

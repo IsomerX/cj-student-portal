@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Calendar, Check, AlertCircle, Loader2, Pencil, Mail, School, BookOpen, Users } from "lucide-react";
-import { isAxiosError } from "axios";
+import { ArrowLeft, Calendar, AlertCircle, Loader2, Pencil, Mail, School, Users } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,8 +54,6 @@ export default function ProfilePage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [daysUntilNextChange, setDaysUntilNextChange] = useState<number | null>(null);
 
@@ -99,12 +97,12 @@ export default function ProfilePage() {
     const newName = buildFullName();
 
     if (!firstName.trim()) {
-      setError("Please enter your first name");
+      toast.warning("Please enter your first name");
       return;
     }
 
     if (newName === profileQuery.data?.name) {
-      setError("New name is the same as current name");
+      toast.warning("New name is the same as current name");
       return;
     }
 
@@ -116,39 +114,33 @@ export default function ProfilePage() {
     const userId = profileQuery.data?.id;
 
     if (!userId) {
-      setError("Profile could not be loaded. Please refresh and try again.");
+      toast.error("Profile could not be loaded. Please refresh and try again.");
       return;
     }
 
     setIsSubmitting(true);
-    setError("");
-    setSuccess("");
     setShowConfirmDialog(false);
 
     try {
       await updateUserName(userId, newName);
-      setSuccess("Name updated successfully!");
+      toast.success("Name updated successfully!");
       setIsEditing(false);
       profileQuery.refetch();
-
-      // Reset after 3 seconds
-      setTimeout(() => {
-        setSuccess("");
-      }, 3000);
     } catch (err: unknown) {
       console.error("Failed to update name:", err);
-      const errorMessage = isAxiosError<{ error?: string }>(err)
-        ? (err.response?.data?.error ?? "Failed to update name. Please try again.")
-        : "Failed to update name. Please try again.";
-      setError(errorMessage);
+      if (err instanceof Error) {
+        toast.error("Name change restricted", {
+          description: err.message,
+        });
+      } else {
+        toast.error("Failed to update name. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleStartEditing = () => {
-    setError("");
-    setSuccess("");
     setIsEditing(true);
   };
 
@@ -168,7 +160,6 @@ export default function ProfilePage() {
         setLastName("");
       }
     }
-    setError("");
     setIsEditing(false);
   };
 
@@ -191,10 +182,6 @@ export default function ProfilePage() {
     : null;
   const newFullName = buildFullName();
 
-  const classDisplay = user?.classSection
-    ? `Class ${user.classSection.grade ?? ""}${user.classSection.section ? ` - ${user.classSection.section}` : ""}`
-    : null;
-
   return (
     <>
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
@@ -205,7 +192,6 @@ export default function ProfilePage() {
               <DialogDescription className="text-sm leading-6">
                 Are you sure you want to change your name to{" "}
                 <span className="font-semibold text-[#283618]">{newFullName}</span>?
-                {canChangeName && " You won't be able to change it again for 15 days."}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="mt-5 flex-col gap-2 sm:flex-col sm:space-x-0">
@@ -258,16 +244,6 @@ export default function ProfilePage() {
 
         {/* Content */}
         <div className="mx-auto max-w-4xl px-3 pt-6 sm:px-6 lg:px-8">
-          {/* Success Message */}
-          {success && (
-            <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-              <div className="flex gap-3">
-                <Check className="h-5 w-5 text-emerald-600" />
-                <p className="text-sm font-medium text-emerald-900">{success}</p>
-              </div>
-            </div>
-          )}
-
           {isEditing ? (
             /* ──────────── Edit Mode ──────────── */
             <Card>
@@ -321,16 +297,6 @@ export default function ProfilePage() {
                   </div>
                 )}
 
-                {/* Error Message */}
-                {error && (
-                  <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-                    <div className="flex gap-3">
-                      <AlertCircle className="h-5 w-5 text-red-600" />
-                      <p className="text-sm font-medium text-red-900">{error}</p>
-                    </div>
-                  </div>
-                )}
-
                 {/* New Name Inputs */}
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name</Label>
@@ -338,10 +304,7 @@ export default function ProfilePage() {
                     id="firstName"
                     placeholder="Enter your first name"
                     value={firstName}
-                    onChange={(e) => {
-                      setFirstName(e.target.value);
-                      setError("");
-                    }}
+                    onChange={(e) => setFirstName(e.target.value)}
                     disabled={!canChangeName || isSubmitting}
                   />
                 </div>
@@ -352,10 +315,7 @@ export default function ProfilePage() {
                     id="lastName"
                     placeholder="Enter your last name (optional)"
                     value={lastName}
-                    onChange={(e) => {
-                      setLastName(e.target.value);
-                      setError("");
-                    }}
+                    onChange={(e) => setLastName(e.target.value)}
                     disabled={!canChangeName || isSubmitting}
                   />
                 </div>
@@ -446,9 +406,6 @@ export default function ProfilePage() {
                   <ProfileDetailRow icon={Mail} label="Email" value={user?.email} />
                   {user?.school?.name && (
                     <ProfileDetailRow icon={School} label="School" value={user.school.name} />
-                  )}
-                  {classDisplay && (
-                    <ProfileDetailRow icon={BookOpen} label="Class & Section" value={classDisplay} />
                   )}
                   {batchesQuery.data && batchesQuery.data.length > 0 && (
                     <ProfileDetailRow
