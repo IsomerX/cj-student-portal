@@ -138,15 +138,97 @@ function VideoTile({
 
 function ScreenShareView({ trackId, peerName, noRound }: { trackId: string; peerName?: string; noRound?: boolean }) {
     const { videoRef } = useVideoTrack(trackId);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [scale, setScale] = useState(1);
+    const [translate, setTranslate] = useState({ x: 0, y: 0 });
+    const pinchRef = useRef({ startDist: 0, startScale: 1 });
+    const panRef = useRef({ startX: 0, startY: 0, startTx: 0, startTy: 0 });
+
+    const clampTranslate = useCallback((x: number, y: number, s: number) => {
+        if (s <= 1) return { x: 0, y: 0 };
+        const el = containerRef.current;
+        if (!el) return { x, y };
+        const maxX = (el.clientWidth * (s - 1)) / 2;
+        const maxY = (el.clientHeight * (s - 1)) / 2;
+        return {
+            x: Math.min(Math.max(x, -maxX), maxX),
+            y: Math.min(Math.max(y, -maxY), maxY),
+        };
+    }, []);
+
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        if (e.touches.length === 2) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            pinchRef.current = { startDist: Math.hypot(dx, dy), startScale: scale };
+            const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            panRef.current = { startX: midX, startY: midY, startTx: translate.x, startTy: translate.y };
+        }
+    }, [scale, translate]);
+
+    const handleTouchMove = useCallback((e: React.TouchEvent) => {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const dist = Math.hypot(dx, dy);
+            const newScale = Math.min(Math.max(pinchRef.current.startScale * (dist / pinchRef.current.startDist), 1), 4);
+
+            const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            const newTranslate = clampTranslate(
+                panRef.current.startTx + (midX - panRef.current.startX),
+                panRef.current.startTy + (midY - panRef.current.startY),
+                newScale,
+            );
+
+            setScale(newScale);
+            setTranslate(newTranslate);
+        }
+    }, [clampTranslate]);
+
+    const handleTouchEnd = useCallback(() => {
+        setScale((s) => {
+            if (s <= 1.05) {
+                setTranslate({ x: 0, y: 0 });
+                return 1;
+            }
+            return s;
+        });
+    }, []);
+
+    // Reset zoom when track changes
+    useEffect(() => {
+        setScale(1);
+        setTranslate({ x: 0, y: 0 });
+    }, [trackId]);
+
     return (
-        <div className={`relative w-full h-full bg-black overflow-hidden ${noRound ? "" : "rounded-2xl"}`}>
-            <video
-                ref={videoRef}
-                autoPlay
-                muted
-                playsInline
-                className="pointer-events-none h-full w-full object-contain"
-            />
+        <div
+            ref={containerRef}
+            className={`relative w-full h-full bg-black overflow-hidden ${noRound ? "" : "rounded-2xl"}`}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            style={{ touchAction: "none" }}
+        >
+            <div
+                className="h-full w-full"
+                style={{
+                    transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
+                    transformOrigin: "center center",
+                    willChange: scale > 1 ? "transform" : undefined,
+                }}
+            >
+                <video
+                    ref={videoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="pointer-events-none h-full w-full object-contain"
+                />
+            </div>
             <div className="absolute bottom-2 left-2">
                 <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-white bg-black/60 backdrop-blur-sm rounded-lg">
                     <MonitorUp className="w-3 h-3" />
