@@ -156,9 +156,9 @@ export async function fetchProfile(): Promise<AuthUser> {
   }
 }
 
-export async function updateUserName(userId: string, name: string): Promise<AuthUser | null> {
+export async function updateUserName(_userId: string, name: string): Promise<AuthUser | null> {
   try {
-    const response = await apiClient.put<ProfileUpdateResponseBody>(`/users/${userId}`, { name });
+    const response = await apiClient.patch<ProfileUpdateResponseBody>(`/auth/profile`, { name });
 
     if (response.data.success === false) {
       throw new AuthApiError(response.data.error || response.data.message || "Failed to update profile.");

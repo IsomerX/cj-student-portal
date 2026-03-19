@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 
+import { Toaster } from "sonner";
 import { QueryProvider } from "@/providers/query-provider";
 import BottomNav from "@/components/bottom-nav";
 import InstallAssistant from "@/components/pwa/install-assistant";
@@ -51,6 +52,16 @@ export default function RootLayout({
           {children}
           <InstallAssistant />
           <BottomNav />
+          <Toaster
+            position="top-center"
+            expand={false}
+            visibleToasts={3}
+            gap={6}
+            toastOptions={{
+              duration: 4000,
+              className: "sonner-toast",
+            }}
+          />
         </QueryProvider>
       </body>
     </html>

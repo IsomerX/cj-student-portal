@@ -1,10 +1,11 @@
 'use client';
 
-import { type ReactNode, useCallback, useMemo, useRef, useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useMemo, useEffect, useState } from 'react';
 import {
     HMSRoomProvider,
     useHMSActions,
     useHMSStore,
+    useHMSVanillaStore,
     useHMSNotifications,
     useAutoplayError,
     selectPeers,
@@ -69,21 +70,12 @@ function HmsVideoContextProvider({ children }: { children: ReactNode }) {
     const hmsNotification = useHMSNotifications();
     const { error: autoplayError, unblockAudio, resetError: resetAutoplayError } = useAutoplayError();
 
-    // Build a stable peer-audio lookup map
-    // We need to individually call selectIsPeerAudioEnabled for each peer,
-    // but since it's a selector factory, we track it via a ref-based approach.
-    // Instead, we provide a function that uses the store directly.
-    const storeRef = useRef(useHMSStore);
-    storeRef.current = useHMSStore;
+    // Use the vanilla (non-hook) store to read peer audio state imperatively
+    const hmsVanillaStore = useHMSVanillaStore();
 
     const isPeerAudioEnabled = useCallback((peerId: string) => {
-        // Find the peer to get their audioTrack, then check from current peers
-        const peer = hmsPeers.find((p) => p.id === peerId);
-        if (!peer?.audioTrack) return false;
-        // We can't call hooks dynamically, so we use the raw selector approach
-        // The HMS store is reactive, so this will be correct at render time
-        return storeRef.current(selectIsPeerAudioEnabled(peer.id));
-    }, [hmsPeers]);
+        return hmsVanillaStore.getState(selectIsPeerAudioEnabled(peerId));
+    }, [hmsVanillaStore]);
 
     const peers = useMemo(() => hmsPeers.map(mapHmsPeerToVideoPeer), [hmsPeers]);
     const localPeer = useMemo(() => hmsLocalPeer ? mapHmsPeerToVideoPeer(hmsLocalPeer) : null, [hmsLocalPeer]);
