@@ -1,8 +1,11 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 
 import { QueryProvider } from "@/providers/query-provider";
+import PostHogProvider from "@/components/PostHogProvider";
+import PostHogErrorBoundary from "@/components/PostHogErrorBoundary";
 import BottomNav from "@/components/bottom-nav";
 import InstallAssistant from "@/components/pwa/install-assistant";
 import "./globals.css";
@@ -48,9 +51,15 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <QueryProvider>
-          {children}
-          <InstallAssistant />
-          <BottomNav />
+          <Suspense fallback={null}>
+            <PostHogProvider>
+              <PostHogErrorBoundary>
+                {children}
+              </PostHogErrorBoundary>
+              <InstallAssistant />
+              <BottomNav />
+            </PostHogProvider>
+          </Suspense>
         </QueryProvider>
       </body>
     </html>
