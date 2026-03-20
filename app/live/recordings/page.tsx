@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { ArrowLeft, Play, Video, Clock, HardDrive } from "lucide-react";
+import { ArrowLeft, Play, Video, Clock, HardDrive, Loader2, Shield } from "lucide-react";
 import { useMyBatchesQuery } from "@/hooks/use-assignments";
 import { useRecordingsQuery } from "@/hooks/use-live-classes";
 import { Recording } from "@/lib/api/live-classes";
@@ -38,11 +38,9 @@ export default function RecordingsPage() {
     const { data: recordings, isLoading } = useRecordingsQuery(batchIds);
 
     const handleRecordingPress = (recording: Recording) => {
-        // Open standard video URL in new tab or navigate to a dedicated player route
-        // Here we just navigate to a simple player route passing URL
         router.push(
-            `/live/recordings/play?url=${encodeURIComponent(
-                recording.url
+            `/live/recordings/play?recordingId=${encodeURIComponent(
+                recording.id
             )}&title=${encodeURIComponent(
                 recording.liveClass?.title || "Recording"
             )}&batch=${encodeURIComponent(
@@ -100,22 +98,28 @@ export default function RecordingsPage() {
                     <div className="space-y-3 sm:space-y-4">
                         {recordings?.map((item: Recording) => {
                             const isReady = item.status === "READY";
+                            const isDrmProcessing = isReady && item.drmStatus && item.drmStatus !== 'ready';
+                            const isPlayable = isReady && item.drmStatus === 'ready';
 
                             return (
                                 <button
                                     key={item.id}
                                     onClick={() => handleRecordingPress(item)}
-                                    disabled={!isReady}
-                                    className={`group flex w-full items-center gap-4 rounded-[20px] bg-white p-4 shadow-sm ring-1 ring-[#ece5c8] transition-all text-left ${isReady
+                                    disabled={!isPlayable}
+                                    className={`group flex w-full items-center gap-4 rounded-[20px] bg-white p-4 shadow-sm ring-1 ring-[#ece5c8] transition-all text-left ${isPlayable
                                             ? "cursor-pointer hover:-translate-y-1 hover:shadow-md hover:ring-[#cadab2]"
                                             : "cursor-not-allowed opacity-60"
                                         }`}
                                 >
                                     <div
-                                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-colors ${isReady ? "bg-[#283618] text-white" : "bg-[#f3f4f6] text-[#a3a3a3]"
+                                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-colors ${isPlayable ? "bg-[#283618] text-white" : isDrmProcessing ? "bg-amber-50 text-amber-500" : "bg-[#f3f4f6] text-[#a3a3a3]"
                                             }`}
                                     >
-                                        <Play className="h-5 w-5 ml-1" />
+                                        {isDrmProcessing ? (
+                                            <Shield className="h-5 w-5" />
+                                        ) : (
+                                            <Play className="h-5 w-5 ml-1" />
+                                        )}
                                     </div>
 
                                     <div className="flex-1 min-w-0">
@@ -128,14 +132,23 @@ export default function RecordingsPage() {
                                         </p>
 
                                         <div className="flex items-center gap-4">
-                                            <div className="flex items-center gap-1.5 text-xs text-[#737373]">
-                                                <Clock className="h-3.5 w-3.5" />
-                                                <span>{formatDuration(item.duration)}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1.5 text-xs text-[#737373]">
-                                                <HardDrive className="h-3.5 w-3.5" />
-                                                <span>{formatSize(item.size)}</span>
-                                            </div>
+                                            {isDrmProcessing ? (
+                                                <div className="flex items-center gap-1.5 text-xs text-amber-600">
+                                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                    <span>{item.drmStatus === 'saving' ? 'Saving to storage...' : 'Encrypting with DRM...'}</span>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <div className="flex items-center gap-1.5 text-xs text-[#737373]">
+                                                        <Clock className="h-3.5 w-3.5" />
+                                                        <span>{formatDuration(item.duration)}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 text-xs text-[#737373]">
+                                                        <HardDrive className="h-3.5 w-3.5" />
+                                                        <span>{formatSize(item.size)}</span>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 </button>
