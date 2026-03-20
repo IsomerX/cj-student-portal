@@ -38,6 +38,7 @@ export interface Recording {
     duration?: number | null;
     size?: number | null;
     status: RecordingStatus;
+    drmStatus?: 'saving' | 'encrypting' | 'ready';
     downloadEnabled: boolean;
     liveClass: { title: string; startAt: string; batch: { name: string } };
     _count: { accessGrants: number };
@@ -132,6 +133,26 @@ export async function joinLiveClass(classId: string): Promise<void> {
         if (response.data.success === false) {
             throw new LiveClassesApiError(response.data.message || "Failed to join class.");
         }
+    } catch (error) {
+        throw toLiveClassesApiError(error);
+    }
+}
+
+export async function fetchPlaybackOtp(recordingId: string): Promise<{ otp?: string; playbackInfo?: string; fallback?: boolean; url?: string; processing?: boolean; vdoStatus?: string }> {
+    try {
+        const response = await apiClient.post<ApiEnvelope<{ otp?: string; playbackInfo?: string; fallback?: boolean; url?: string }>>(
+            `/recordings/${recordingId}/otp`
+        );
+
+        if (response.data.success === false) {
+            throw new LiveClassesApiError(response.data.message || "Failed to get playback OTP.");
+        }
+
+        if (!response.data.data) {
+            throw new LiveClassesApiError("Empty playback data.");
+        }
+
+        return response.data.data;
     } catch (error) {
         throw toLiveClassesApiError(error);
     }

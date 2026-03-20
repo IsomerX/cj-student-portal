@@ -3,22 +3,12 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams, useRouter, useParams } from "next/navigation";
 import {
-    useHMSActions,
-    useHMSStore,
-    useHMSNotifications,
-    useAutoplayError,
-    useVideo,
-    selectPeers,
-    selectLocalPeer,
-    selectIsLocalAudioEnabled,
-    selectIsLocalVideoEnabled,
-    selectRoomState,
-    selectIsPeerAudioEnabled,
-    selectDominantSpeaker,
-    HMSNotificationTypes,
-} from "@100mslive/react-sdk";
-import { HMSRoomState } from "@100mslive/react-sdk";
-import type { HMSPeer } from "@100mslive/react-sdk";
+    useVideoRoom,
+    useVideoTrack,
+    VideoRoomState,
+    VideoNotificationType,
+} from "@/hooks/video-provider";
+import type { VideoPeer } from "@/hooks/video-provider";
 import {
     ArrowLeft,
     Clock,
@@ -49,6 +39,7 @@ import {
 import { joinLiveClass, LiveClassesApiError } from "@/lib/api/live-classes";
 import { useLiveClassTokenQuery } from "@/hooks/use-live-classes";
 import { liveClassQueryKeys } from "@/lib/query-keys";
+import { analytics } from "@/lib/analytics";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -83,7 +74,7 @@ function VideoTile({
     onTogglePin,
     videoFit = "cover",
 }: {
-    peer: HMSPeer;
+    peer: VideoPeer;
     isLocal?: boolean;
     noRound?: boolean;
     isActiveSpeaker?: boolean;
@@ -91,8 +82,9 @@ function VideoTile({
     onTogglePin?: () => void;
     videoFit?: "cover" | "contain";
 }) {
-    const { videoRef } = useVideo({ trackId: peer.videoTrack });
-    const isAudioEnabled = useHMSStore(selectIsPeerAudioEnabled(peer.id));
+    const { videoRef } = useVideoTrack(peer.videoTrack);
+    const { isPeerAudioEnabled } = useVideoRoom();
+    const isAudioEnabled = isPeerAudioEnabled(peer.id);
     const hasVideo = !!peer.videoTrack;
     const initials = (peer.name || "?").charAt(0).toUpperCase();
     const emphasisClass = isPinned
@@ -146,7 +138,7 @@ function VideoTile({
 }
 
 function ScreenShareView({ trackId, peerName, noRound }: { trackId: string; peerName?: string; noRound?: boolean }) {
-    const { videoRef } = useVideo({ trackId });
+    const { videoRef } = useVideoTrack(trackId);
     return (
         <div className={`relative w-full h-full bg-black overflow-hidden ${noRound ? "" : "rounded-2xl"}`}>
             <video
@@ -313,16 +305,21 @@ export default function LiveSessionClient() {
     // Query client for cache invalidation
     const queryClient = useQueryClient();
 
-    // HMS hooks
-    const hmsActions = useHMSActions();
-    const peers = useHMSStore(selectPeers);
-    const localPeer = useHMSStore(selectLocalPeer);
-    const isAudioEnabled = useHMSStore(selectIsLocalAudioEnabled);
-    const isVideoEnabled = useHMSStore(selectIsLocalVideoEnabled);
-    const roomState = useHMSStore(selectRoomState);
-    const dominantSpeaker = useHMSStore(selectDominantSpeaker);
-    const notification = useHMSNotifications();
-    const { error: autoplayError, unblockAudio, resetError: resetAutoplayError } = useAutoplayError();
+    // Video provider hooks
+    const {
+        peers,
+        localPeer,
+        isLocalAudioEnabled: isAudioEnabled,
+        isLocalVideoEnabled: isVideoEnabled,
+        roomState,
+        dominantSpeaker,
+        isPeerAudioEnabled,
+        actions,
+        notification,
+        autoplayError,
+        unblockAudio,
+        resetAutoplayError,
+    } = useVideoRoom();
 
     // State
     const [connectionState, setConnectionState] = useState<ConnectionState>("loading");
@@ -443,7 +440,7 @@ export default function LiveSessionClient() {
                     const userStr = typeof window !== "undefined" ? localStorage.getItem("user") : null;
                     const user = userStr ? JSON.parse(userStr) : { name: "Student" };
 
-                    await hmsActions.join({
+                    await actions.join({
                         authToken: tokenData.token,
                         userName: user.name || "Student",
                     });
@@ -495,7 +492,7 @@ export default function LiveSessionClient() {
             setConnectionState("loading");
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tokenData, error, isError, isFetching, hmsActions, params.classId]);
+    }, [tokenData, error, isError, isFetching, actions, params.classId]);
 
     // Waiting room polling
     useEffect(() => {
@@ -510,17 +507,19 @@ export default function LiveSessionClient() {
 
     // Sync room state
     useEffect(() => {
-        if (roomState === HMSRoomState.Connected) {
+        if (roomState === VideoRoomState.Connected) {
             setConnectionState("connected");
-        } else if (roomState === HMSRoomState.Disconnected && connectionState === "connected") {
+            analytics.trackLiveClassJoined(params.classId);
+        } else if (roomState === VideoRoomState.Disconnected && connectionState === "connected") {
             setConnectionState("disconnected");
+            analytics.trackLiveClassLeft(params.classId);
         }
-    }, [roomState, connectionState]);
+    }, [roomState, connectionState, params.classId]);
 
     // Cleanup on unmount
     useEffect(() => {
         return () => {
-            hmsActions.leave().catch(() => {
+            actions.leave().catch(() => {
                 // Ignore teardown errors during navigation/reload
             });
         };
@@ -642,7 +641,7 @@ export default function LiveSessionClient() {
         }
     }, [isLandscape, showControls, resetControlsTimer]);
 
-    const togglePinnedPeer = useCallback((peer: HMSPeer | null | undefined) => {
+    const togglePinnedPeer = useCallback((peer: VideoPeer | null | undefined) => {
         if (!peer) {
             return;
         }
@@ -683,7 +682,7 @@ export default function LiveSessionClient() {
     useEffect(() => {
         if (!notification) return;
 
-        if (notification.type === HMSNotificationTypes.REMOVED_FROM_ROOM) {
+        if (notification.type === VideoNotificationType.RemovedFromRoom) {
             // Immediately nuke the cached token so re-navigation can't reuse it
             queryClient.removeQueries({ queryKey: liveClassQueryKeys.token(params.classId) });
 
@@ -698,7 +697,7 @@ export default function LiveSessionClient() {
             return;
         }
 
-        if (notification.type === HMSNotificationTypes.ROOM_ENDED) {
+        if (notification.type === VideoNotificationType.RoomEnded) {
             queryClient.removeQueries({ queryKey: liveClassQueryKeys.token(params.classId) });
             setErrorMessage("The live session has ended.");
             setConnectionState("removed");
@@ -711,8 +710,8 @@ export default function LiveSessionClient() {
     useEffect(() => {
         if (!notification) return;
 
-        if (notification.type === HMSNotificationTypes.ROLE_UPDATED) {
-            const peer = notification.data as HMSPeer | undefined;
+        if (notification.type === VideoNotificationType.RoleUpdated) {
+            const peer = notification.data as VideoPeer | undefined;
             if (!peer?.isLocal || !peer.roleName) {
                 return;
             }
@@ -726,8 +725,8 @@ export default function LiveSessionClient() {
             return;
         }
 
-        if (notification.type === HMSNotificationTypes.NEW_MESSAGE) {
-            const msg = notification.data;
+        if (notification.type === VideoNotificationType.NewMessage) {
+            const msg = notification.data as { id?: string; message: string; senderName?: string; type?: string; time?: number | Date } | undefined;
             if (!msg) return;
 
             if (msg.type === "message_deleted") {
@@ -792,14 +791,14 @@ export default function LiveSessionClient() {
     const enableMicrophone = useCallback(async () => {
         try {
             await requestMicrophonePermission();
-            await hmsActions.setLocalAudioEnabled(true);
+            await actions.setLocalAudioEnabled(true);
             setShowMicPermissionDialog(false);
             setMicPermissionNeedsSettings(false);
         } catch (err) {
             console.error("Failed to enable microphone:", err);
             showMicrophonePermissionError(err);
         }
-    }, [hmsActions, requestMicrophonePermission, showMicrophonePermissionError]);
+    }, [actions, requestMicrophonePermission, showMicrophonePermissionError]);
 
     const requestCameraPermission = useCallback(async () => {
         if (!navigator.mediaDevices?.getUserMedia) {
@@ -812,12 +811,12 @@ export default function LiveSessionClient() {
     const enableCamera = useCallback(async () => {
         try {
             await requestCameraPermission();
-            await hmsActions.setLocalVideoEnabled(true);
+            await actions.setLocalVideoEnabled(true);
         } catch (err) {
             console.error("Failed to enable camera:", err);
             toast.error("Could not turn on camera. Please allow camera access in your browser settings.");
         }
-    }, [hmsActions, requestCameraPermission]);
+    }, [actions, requestCameraPermission]);
 
     // Track previous role to detect transitions
     const prevCanPublishRef = useRef(canPublishAudio);
@@ -833,16 +832,16 @@ export default function LiveSessionClient() {
             void enableCamera();
         } else if (!canPublishAudio && wasPublishing) {
             // Demoted to viewer — force disable mic + camera
-            void hmsActions.setLocalAudioEnabled(false).catch(() => {});
-            void hmsActions.setLocalVideoEnabled(false).catch(() => {});
+            void actions.setLocalAudioEnabled(false).catch(() => {});
+            void actions.setLocalVideoEnabled(false).catch(() => {});
         }
-    }, [canPublishAudio, enableMicrophone, enableCamera, hmsActions]);
+    }, [canPublishAudio, enableMicrophone, enableCamera, actions]);
 
     // Handle teacher's camera request
     useEffect(() => {
         if (!notification) return;
-        if (notification.type !== HMSNotificationTypes.NEW_MESSAGE) return;
-        const msg = notification.data;
+        if (notification.type !== VideoNotificationType.NewMessage) return;
+        const msg = notification.data as { type?: string } | undefined;
         if (!msg || msg.type !== "request_video") return;
         toast.info("Your teacher requested you to turn on your camera");
         void enableCamera();
@@ -851,40 +850,45 @@ export default function LiveSessionClient() {
     const handleToggleMute = useCallback(async () => {
         try {
             if (isAudioEnabled) {
-                await hmsActions.setLocalAudioEnabled(false);
+                await actions.setLocalAudioEnabled(false);
+                analytics.trackMicToggled(false);
                 return;
             }
 
             await enableMicrophone();
+            analytics.trackMicToggled(true);
         } catch (err) {
             console.error("Failed to toggle audio:", err);
         }
-    }, [hmsActions, isAudioEnabled, enableMicrophone]);
+    }, [actions, isAudioEnabled, enableMicrophone]);
 
     const handleToggleCamera = useCallback(async () => {
         try {
             if (isVideoEnabled) {
-                await hmsActions.setLocalVideoEnabled(false);
+                await actions.setLocalVideoEnabled(false);
+                analytics.trackCameraToggled(false);
             } else {
                 await enableCamera();
+                analytics.trackCameraToggled(true);
             }
         } catch (err) {
             console.error("Failed to toggle camera:", err);
         }
-    }, [hmsActions, isVideoEnabled, enableCamera]);
+    }, [actions, isVideoEnabled, enableCamera]);
 
     const handleToggleHand = useCallback(async () => {
         try {
             if (isHandRaised) {
-                await hmsActions.lowerLocalPeerHand();
+                await actions.lowerHand();
             } else {
-                await hmsActions.raiseLocalPeerHand();
+                await actions.raiseHand();
+                analytics.trackHandRaised();
             }
             setIsHandRaised(!isHandRaised);
         } catch (err) {
             console.error("Failed to toggle hand raise:", err);
         }
-    }, [hmsActions, isHandRaised]);
+    }, [actions, isHandRaised]);
 
     const handleSendChat = useCallback((text: string) => {
         const newMsg: ChatMessage = {
@@ -895,8 +899,8 @@ export default function LiveSessionClient() {
             isLocal: true,
         };
         setChatMessages((prev) => [...prev, newMsg]);
-        hmsActions.sendBroadcastMessage(text);
-    }, [hmsActions, localPeer?.name]);
+        void actions.sendMessage(text);
+    }, [actions, localPeer?.name]);
 
     const handleSendReaction = useCallback((emoji: string) => {
         const now = Date.now();
@@ -906,20 +910,21 @@ export default function LiveSessionClient() {
         }
 
         reactionCooldownUntilRef.current = now + 1200;
-        hmsActions.sendBroadcastMessage(JSON.stringify({ emoji }), "emoji_reaction");
+        void actions.sendMessage(JSON.stringify({ emoji }), "emoji_reaction");
         triggerEmoji(emoji, localPeer?.name || "You");
         setShowEmojiPicker(false);
-    }, [hmsActions, localPeer?.name, triggerEmoji]);
+    }, [actions, localPeer?.name, triggerEmoji]);
 
     const handleLeave = useCallback(async () => {
+        analytics.trackLiveClassLeft(params.classId);
         queryClient.removeQueries({ queryKey: liveClassQueryKeys.token(params.classId) });
         try {
-            await hmsActions.leave();
+            await actions.leave();
         } catch (err) {
             console.warn("Failed to leave room:", err);
         }
         router.push("/live");
-    }, [hmsActions, router, queryClient, params.classId]);
+    }, [actions, router, queryClient, params.classId]);
 
     const handleToggleChat = useCallback(() => {
         setShowChat((prev) => {
@@ -1558,8 +1563,8 @@ export default function LiveSessionClient() {
 }
 
 // Small PiP component for teacher camera during screen share
-function TeacherPiP({ peer, onTogglePin }: { peer: HMSPeer; onTogglePin?: () => void }) {
-    const { videoRef } = useVideo({ trackId: peer.videoTrack });
+function TeacherPiP({ peer, onTogglePin }: { peer: VideoPeer; onTogglePin?: () => void }) {
+    const { videoRef } = useVideoTrack(peer.videoTrack);
     const hasVideo = !!peer.videoTrack;
 
     return (
