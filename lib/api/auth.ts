@@ -170,6 +170,20 @@ export async function updateUserName(userId: string, name: string): Promise<Auth
   }
 }
 
+export async function updateUserProfilePic(userId: string, profilePicUrl: string): Promise<AuthUser | null> {
+  try {
+    const response = await apiClient.put<ProfileUpdateResponseBody>(`/users/${userId}`, { profilePicUrl });
+
+    if (response.data.success === false) {
+      throw new AuthApiError(response.data.error || response.data.message || "Failed to update profile picture.");
+    }
+
+    return response.data.data ?? null;
+  } catch (error) {
+    throw toAuthApiError(error);
+  }
+}
+
 export async function logout(): Promise<void> {
   try {
     await apiClient.post("/auth/logout");
