@@ -4,6 +4,8 @@ import { GeistSans } from "geist/font/sans";
 
 import { QueryProvider } from "@/providers/query-provider";
 import BottomNav from "@/components/bottom-nav";
+import Sidebar from "@/components/sidebar";
+import MainWrapper from "@/components/main-wrapper";
 import InstallAssistant from "@/components/pwa/install-assistant";
 import "./globals.css";
 
@@ -48,9 +50,12 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <QueryProvider>
-          {children}
+          <MainWrapper>
+            {children}
+          </MainWrapper>
           <InstallAssistant />
           <BottomNav />
+          <Sidebar />
         </QueryProvider>
       </body>
     </html>

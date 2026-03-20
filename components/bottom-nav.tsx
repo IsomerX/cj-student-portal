@@ -57,7 +57,7 @@ export default function BottomNav() {
 
   return (
     <nav
-      className="fixed inset-x-3 z-50 mx-auto flex max-w-md items-stretch justify-between gap-1 overflow-hidden rounded-full border border-white/20 bg-[#283618]/95 px-1.5 py-1.5 shadow-xl backdrop-blur-md sm:inset-x-auto sm:bottom-6 sm:left-1/2 sm:max-w-none sm:-translate-x-1/2 sm:gap-2 sm:px-3 sm:py-2"
+      className="md:hidden fixed inset-x-3 z-50 mx-auto flex max-w-md items-stretch justify-between gap-1 overflow-hidden rounded-full border border-white/20 bg-[#283618]/95 px-1.5 py-1.5 shadow-xl backdrop-blur-md sm:inset-x-auto sm:bottom-6 sm:left-1/2 sm:max-w-none sm:-translate-x-1/2 sm:gap-2 sm:px-3 sm:py-2"
       style={{ bottom: "max(1rem, calc(env(safe-area-inset-bottom) + 0.25rem))" }}
     >
       {NAV_ITEMS.map(({ href, icon: Icon, label }) => {

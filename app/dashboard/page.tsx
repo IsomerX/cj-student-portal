@@ -235,6 +235,49 @@ function LiveClassPreviewCard({ liveClass }: { liveClass: LiveClass }) {
   );
 }
 
+function DesktopModuleRow({
+  title,
+  description,
+  icon: Icon,
+  iconClassName,
+  href,
+  disabled,
+}: ModuleShortcut) {
+  const content = (
+    <article
+      className={cn(
+        "group flex items-center justify-between rounded-[16px] p-3 transition-all duration-300 border border-transparent",
+        disabled
+          ? "cursor-not-allowed opacity-60"
+          : "cursor-pointer hover:bg-[#f8f9fa] hover:border-gray-200",
+      )}
+    >
+      <div className="flex items-center gap-4">
+        <div
+          className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] ring-1 ring-black/5",
+            iconClassName,
+          )}
+        >
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold text-[#212121]">{title}</h3>
+          <p className="mt-0.5 text-xs text-[#737373] line-clamp-1">{description}</p>
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center pl-4">
+        {disabled ? <Lock className="h-4 w-4 text-gray-300" /> : <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-[#212121] transition-colors" />}
+      </div>
+    </article>
+  );
+
+  if (href && !disabled) {
+    return <Link href={href}>{content}</Link>;
+  }
+  return content;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const token = getStoredToken();
@@ -349,156 +392,307 @@ export default function DashboardPage() {
       />
       <main className="min-h-[100dvh] overflow-x-hidden bg-[#f0f2f5] pb-[calc(env(safe-area-inset-bottom)+6.5rem)] sm:pb-12">
         <section
-          className="relative overflow-hidden rounded-b-[32px] bg-[#283618] px-3 pb-20 pt-5 shadow-lg sm:rounded-b-[40px] sm:px-6 sm:pb-28 sm:pt-6 lg:px-8"
+          className="lg:hidden relative overflow-hidden rounded-b-[32px] bg-[#283618] px-3 pb-20 pt-5 shadow-lg sm:rounded-b-[40px] sm:px-6 sm:pb-28 sm:pt-6 lg:px-8"
           style={{ paddingTop: "max(1.5rem, calc(env(safe-area-inset-top) + 0.75rem))" }}
         >
-        <div className="absolute -left-10 top-0 h-48 w-48 rounded-full bg-white/5 blur-2xl" />
-        <div className="absolute right-0 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-[#cadab2]/10 blur-3xl lg:translate-x-1/4" />
+          <div className="absolute -left-10 top-0 h-48 w-48 rounded-full bg-white/5 blur-2xl" />
+          <div className="absolute right-0 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-[#cadab2]/10 blur-3xl lg:translate-x-1/4" />
 
-        <div className="relative mx-auto max-w-6xl">
-          <div className="flex flex-row items-center justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <button
-                onClick={() => router.push("/profile")}
-                className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-white text-[#283618] shadow-sm ring-2 ring-white/10 transition-transform hover:scale-105 active:scale-95 sm:h-12 sm:w-12 sm:rounded-[16px]"
-              >
-                <GraduationCap className="h-5 w-5 sm:h-6 sm:w-6" />
-              </button>
-              <div className="min-w-0">
-                <p className="truncate text-[9px] font-bold uppercase tracking-[0.2em] text-white/70 sm:text-[10px]">
-                  Student Portal
-                </p>
-                <p className="truncate text-lg font-extrabold tracking-tight text-white sm:text-xl lg:text-2xl">
-                  CJ Coaching
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={liveClassesQuery.isFetching || batchesQuery.isFetching || recordingsQuery.isFetching}
-                className="h-9 rounded-[12px] border-0 bg-white/10 px-2.5 text-white backdrop-blur-md hover:bg-white/20 hover:text-white sm:px-3"
-              >
-                <RefreshCw
-                  className={cn(
-                    "h-4 w-4",
-                    (liveClassesQuery.isFetching || batchesQuery.isFetching || recordingsQuery.isFetching) &&
-                      "animate-spin",
-                  )}
-                />
-                <span className="hidden sm:ml-2 sm:inline">Refresh</span>
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleLogout}
-                disabled={logoutMutation.isPending}
-                className="h-9 rounded-[12px] border-0 bg-white/10 px-2.5 text-white backdrop-blur-md hover:bg-white/20 hover:text-white sm:px-3"
-              >
-                <LogOut className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">
-                  {logoutMutation.isPending ? "Signing out..." : "Sign out"}
-                </span>
-              </Button>
-            </div>
-          </div>
-
-          <div className="mt-7 max-w-2xl space-y-4 sm:mt-10">
-            <div className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#cadab2] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#283618] shadow-sm">
-              <Sparkles className="h-3 w-3" />
-              <span className="truncate">Live classes only</span>
-            </div>
-
-            <div className="space-y-2">
-              <h1 className="break-words text-[clamp(1.75rem,8vw,2.75rem)] font-extrabold leading-[1.2] tracking-tight text-white">
-                {greetingLabel}, <span className="text-[#cadab2]">{studentName}</span>.
-              </h1>
-              <p className="max-w-[34rem] text-sm font-medium leading-relaxed text-white/80 sm:text-base">
-                &quot;{dashboardQuote}&quot;
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2 pt-1">
-              {user?.school?.name ? (
-                <DashboardMetaChip label={user.school.name} />
-              ) : null}
-              {classDisplay ? (
-                <DashboardMetaChip label={`Class ${classDisplay}`} />
-              ) : null}
-              {batchesQuery.data?.map((batch) => (
-                <DashboardMetaChip key={batch.id} label={batch.name} />
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="relative z-10 mx-auto -mt-10 max-w-6xl px-3 sm:-mt-12 sm:px-6 lg:px-8">
-        <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
-          <section className="rounded-[24px] border border-[#ece5c8] bg-white p-4 shadow-sm sm:p-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#737373]">
-                  Live updates
-                </p>
-                <h2 className="mt-1 text-xl font-extrabold text-[#212121]">Join from home</h2>
-              </div>
-              <Link
-                href="/live"
-                className="inline-flex w-full items-center justify-center gap-2 self-start whitespace-nowrap rounded-full bg-[#283618] px-4 py-2 text-sm font-bold text-white transition-all hover:bg-[#1f2b13] min-[400px]:w-auto sm:self-auto"
-              >
-                Open live
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            </div>
-
-            {liveClassesError ? (
-              <div className="mt-5 rounded-[18px] border border-[#f5d0d0] bg-[#fff8f8] px-4 py-4 text-sm text-[#9c4c4c]">
-                {liveClassesError}
-              </div>
-            ) : latestClasses.length === 0 && !liveClassesQuery.isLoading ? (
-              <div className="mt-5 rounded-[20px] border border-dashed border-[#d9dfcf] bg-[#fafbf8] px-4 py-10 text-center sm:px-5">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-[16px] bg-[#f6fbf2] text-[#2d8c53]">
-                  <Video className="h-5 w-5" />
+          <div className="relative mx-auto max-w-6xl">
+            <div className="flex flex-row items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <button
+                  onClick={() => router.push("/profile")}
+                  className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-white text-[#283618] shadow-sm ring-2 ring-white/10 transition-transform hover:scale-105 active:scale-95 sm:h-12 sm:w-12 sm:rounded-[16px]"
+                >
+                  <GraduationCap className="h-5 w-5 sm:h-6 sm:w-6" />
+                </button>
+                <div className="min-w-0">
+                  <p className="truncate text-[9px] font-bold uppercase tracking-[0.2em] text-white/70 sm:text-[10px]">
+                    Student Portal
+                  </p>
+                  <p className="truncate text-lg font-extrabold tracking-tight text-white sm:text-xl lg:text-2xl">
+                    CJ Coaching
+                  </p>
                 </div>
-                <h3 className="mt-4 text-lg font-bold text-[#212121]">No live classes yet</h3>
-                <p className="mt-2 text-sm text-[#737373]">
-                  As soon as your teacher creates or starts a class, it will show up here automatically.
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={liveClassesQuery.isFetching || batchesQuery.isFetching || recordingsQuery.isFetching}
+                  className="h-9 rounded-[12px] border-0 bg-white/10 px-2.5 text-white backdrop-blur-md hover:bg-white/20 hover:text-white sm:px-3"
+                >
+                  <RefreshCw
+                    className={cn(
+                      "h-4 w-4",
+                      (liveClassesQuery.isFetching || batchesQuery.isFetching || recordingsQuery.isFetching) &&
+                      "animate-spin",
+                    )}
+                  />
+                  <span className="hidden sm:ml-2 sm:inline">Refresh</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                  disabled={logoutMutation.isPending}
+                  className="h-9 rounded-[12px] border-0 bg-white/10 px-2.5 text-white backdrop-blur-md hover:bg-white/20 hover:text-white sm:px-3"
+                >
+                  <LogOut className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">
+                    {logoutMutation.isPending ? "Signing out..." : "Sign out"}
+                  </span>
+                </Button>
+              </div>
+            </div>
+
+            <div className="mt-7 max-w-2xl space-y-4 sm:mt-10">
+              <div className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#cadab2] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#283618] shadow-sm">
+                <Sparkles className="h-3 w-3" />
+                <span className="truncate">Live classes only</span>
+              </div>
+
+              <div className="space-y-2">
+                <h1 className="break-words text-[clamp(1.75rem,8vw,2.75rem)] font-extrabold leading-[1.2] tracking-tight text-white">
+                  {greetingLabel}, <span className="text-[#cadab2]">{studentName}</span>.
+                </h1>
+                <p className="max-w-[34rem] text-sm font-medium leading-relaxed text-white/80 sm:text-base">
+                  &quot;{dashboardQuote}&quot;
                 </p>
               </div>
-            ) : (
-              <div className="mt-5 space-y-3">
-                {latestClasses.map((liveClass) => (
-                  <LiveClassPreviewCard key={liveClass.id} liveClass={liveClass} />
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                {user?.school?.name ? (
+                  <DashboardMetaChip label={user.school.name} />
+                ) : null}
+                {classDisplay ? (
+                  <DashboardMetaChip label={`Class ${classDisplay}`} />
+                ) : null}
+                {batchesQuery.data?.map((batch) => (
+                  <DashboardMetaChip key={batch.id} label={batch.name} />
                 ))}
               </div>
-            )}
-          </section>
-
-          <section className="rounded-[24px] border border-[#ece5c8] bg-white p-4 shadow-sm sm:p-6">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#737373]">
-                CJ modules
-              </p>
-              <h2 className="mt-1 text-xl font-extrabold text-[#212121]">Available today</h2>
-              <p className="mt-2 text-sm text-[#737373]">
-                Only live classes and recordings are enabled right now. Everything else is temporarily locked.
-              </p>
             </div>
+          </div>
+        </section>
 
-            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {moduleShortcuts.map((module) => (
-                <ModuleCard key={module.title} {...module} />
-              ))}
-            </div>
-          </section>
+        <div className="lg:hidden relative z-10 mx-auto -mt-10 max-w-6xl px-3 sm:-mt-12 sm:px-6 lg:px-8">
+          <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
+            <section className="rounded-[24px] border border-[#ece5c8] bg-white p-4 shadow-sm sm:p-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#737373]">
+                    Live updates
+                  </p>
+                  <h2 className="mt-1 text-xl font-extrabold text-[#212121]">Join from home</h2>
+                </div>
+                <Link
+                  href="/live"
+                  className="inline-flex w-full items-center justify-center gap-2 self-start whitespace-nowrap rounded-full bg-[#283618] px-4 py-2 text-sm font-bold text-white transition-all hover:bg-[#1f2b13] min-[400px]:w-auto sm:self-auto"
+                >
+                  Open live
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </div>
+
+              {liveClassesError ? (
+                <div className="mt-5 rounded-[18px] border border-[#f5d0d0] bg-[#fff8f8] px-4 py-4 text-sm text-[#9c4c4c]">
+                  {liveClassesError}
+                </div>
+              ) : latestClasses.length === 0 && !liveClassesQuery.isLoading ? (
+                <div className="mt-5 rounded-[20px] border border-dashed border-[#d9dfcf] bg-[#fafbf8] px-4 py-10 text-center sm:px-5">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-[16px] bg-[#f6fbf2] text-[#2d8c53]">
+                    <Video className="h-5 w-5" />
+                  </div>
+                  <h3 className="mt-4 text-lg font-bold text-[#212121]">No live classes yet</h3>
+                  <p className="mt-2 text-sm text-[#737373]">
+                    As soon as your teacher creates or starts a class, it will show up here automatically.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-5 space-y-3">
+                  {latestClasses.map((liveClass) => (
+                    <LiveClassPreviewCard key={liveClass.id} liveClass={liveClass} />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-[24px] border border-[#ece5c8] bg-white p-4 shadow-sm sm:p-6">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#737373]">
+                  CJ modules
+                </p>
+                <h2 className="mt-1 text-xl font-extrabold text-[#212121]">Available today</h2>
+                <p className="mt-2 text-sm text-[#737373]">
+                  Only live classes and recordings are enabled right now. Everything else is temporarily locked.
+                </p>
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {moduleShortcuts.map((module) => (
+                  <ModuleCard key={module.title} {...module} />
+                ))}
+              </div>
+            </section>
+          </div>
         </div>
-      </div>
+
+        {/* DESKTOP LAYOUT (Codedamn Style) */}
+        <div className="hidden lg:block mx-auto max-w-[1280px] px-8 pt-8 pb-12 mt-0">
+          <header className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <h1 className="text-[28px] font-extrabold text-[#212121] tracking-tight">Dashboard</h1>
+              <div className="rounded-md bg-pink-100 px-2 py-0.5 text-[10px] font-bold text-pink-600 uppercase tracking-widest">
+                Live Only
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 bg-white/60 backdrop-blur-md rounded-full p-1.5 pr-4 shadow-sm border border-gray-200/60">
+              <Button variant="ghost" size="icon" onClick={handleRefresh} className="rounded-full hover:bg-gray-100 h-8 w-8">
+                <RefreshCw className={cn("h-4 w-4 text-[#212121]", (liveClassesQuery.isFetching || batchesQuery.isFetching || recordingsQuery.isFetching) && "animate-spin")} />
+              </Button>
+              <div className="w-[1px] h-4 bg-gray-200" />
+              <div className="flex items-center gap-2 pl-2 cursor-pointer" onClick={() => router.push('/profile')}>
+                <div className="h-7 w-7 rounded-full bg-[#cadab2] flex items-center justify-center font-bold text-xs text-[#283618]">
+                  {studentName.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-sm font-bold text-[#212121]">{studentName}</span>
+              </div>
+            </div>
+          </header>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+            {/* Main Column */}
+            <div className="lg:col-span-8 flex flex-col gap-8">
+
+              {/* Banner Gradient */}
+              <div className="relative rounded-[24px] bg-gradient-to-br from-[#283618] to-[#405423] p-10 shadow-lg overflow-hidden flex flex-col justify-center min-h-[220px]">
+                <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 mix-blend-overlay pointer-events-none" />
+                <div className="relative z-10 w-full flex justify-between items-center">
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-[#f6fbf2] px-3 py-1 text-[10px] uppercase font-bold text-[#2d8c53] mb-4 shadow-sm">
+                      <Sparkles className="h-3 w-3" />
+                      Welcome Back
+                    </div>
+                    <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-3 tracking-tight">
+                      {greetingLabel}, {studentName}
+                    </h2>
+                    <p className="text-white/80 text-sm sm:text-base max-w-md leading-relaxed font-medium">
+                      "{dashboardQuote}"
+                    </p>
+                  </div>
+                  <div className="hidden sm:block opacity-20 pointer-events-none">
+                    <GraduationCap className="w-32 h-32 text-white -rotate-12" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Continue Learning / Live Updates */}
+              <div className="flex-1 flex flex-col">
+                <div className="flex items-center justify-between mb-5 shrink-0">
+                  <h3 className="text-[22px] font-extrabold text-[#212121]">Live Updates</h3>
+                  <Link href="/live" className="text-sm font-bold text-[#405423] hover:underline bg-[#f6fbf2] px-4 py-1.5 rounded-full transition-colors hover:bg-[#e8f4de]">
+                    View all
+                  </Link>
+                </div>
+
+                <div className="bg-white rounded-[24px] border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6 flex-1 flex flex-col justify-start relative overflow-hidden">
+                  {liveClassesError ? (
+                    <div className="rounded-[18px] border border-[#f5d0d0] bg-[#fff8f8] px-4 py-4 text-sm text-[#9c4c4c]">
+                      {liveClassesError}
+                    </div>
+                  ) : latestClasses.length === 0 && !liveClassesQuery.isLoading ? (
+                    <div className="rounded-[20px] border border-dashed border-[#d9dfcf] bg-[#fafbf8] px-4 py-10 text-center">
+                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-[16px] bg-[#f6fbf2] text-[#2d8c53]">
+                        <Video className="h-5 w-5" />
+                      </div>
+                      <h3 className="mt-4 text-base font-bold text-[#212121]">No live classes yet</h3>
+                      <p className="mt-1 text-sm text-[#737373]">As soon as your teacher schedules a class, it will show up here.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-4 relative z-10">
+                        {latestClasses.map(liveClass => (
+                          <LiveClassPreviewCard key={liveClass.id} liveClass={liveClass} />
+                        ))}
+                      </div>
+
+                      {latestClasses.length > 0 && latestClasses.length < 3 && (
+                        <div className="mt-auto pt-10 pb-4 flex flex-col items-center justify-center text-center relative z-10 w-full opacity-80 min-h-[180px]">
+                          <div className="w-16 h-16 mb-4 rounded-2xl bg-gradient-to-br from-[#f8faf5] to-[#edf4e6] text-[#cadab2] flex items-center justify-center shadow-inner border border-white">
+                            <Sparkles className="w-8 h-8" />
+                          </div>
+                          <p className="text-sm font-bold text-[#a3a3a3]">You&apos;re all set.</p>
+                          <p className="text-xs text-[#a3a3a3] mt-1 max-w-[200px]">Any new live classes or updates will appear right here.</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Decorative background shapes for the card */}
+                  <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-gradient-to-tr from-[#f6fbf2] to-transparent rounded-full blur-3xl pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
+            {/* Sidebar Column */}
+            {/* Sidebar Column */}
+            <div className="lg:col-span-4 flex flex-col gap-6">
+
+              {/* Tip Widget */}
+              <div className="bg-gradient-to-br from-[#f6fbf2] to-[#e8f4de] rounded-[24px] border border-[#d2e5bc] p-6 shadow-sm">
+                <div className="inline-flex items-center gap-1.5 bg-white/60 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider text-[#2d8c53] mb-3">
+                  <Sparkles className="h-3 w-3" />
+                  Daily Tip
+                </div>
+                <p className="text-sm font-bold text-[#283618] leading-relaxed">
+                  Set aside 15 minutes before class starts to review the previous recordings. It prepares your mind for the next concepts.
+                </p>
+              </div>
+
+              {/* Your Batches Widget */}
+              <div className="bg-[#1f2937] text-white rounded-[24px] p-6 shadow-xl shadow-[#1f2937]/10 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/4 pointer-events-none" />
+                <div className="relative z-10">
+                  <h3 className="text-xs font-bold text-white/60 mb-1 uppercase tracking-wider">Your Goal</h3>
+                  <p className="text-xl font-extrabold mb-6 tracking-tight">Active Enrollments</p>
+
+                  <div className="space-y-2">
+                    {batchesQuery.data?.map((batch, index) => (
+                      <div key={batch.id} className="flex justify-between items-center bg-white/10 rounded-[16px] px-4 py-3 border border-white/5">
+                        <span className="font-bold text-sm tracking-tight">{batch.name}</span>
+                        <span className="text-[10px] uppercase font-bold text-[#212121] bg-[#cadab2] px-2 py-1 rounded-md">Batch {index + 1}</span>
+                      </div>
+                    ))}
+                    {batchesQuery.data?.length === 0 && (
+                      <p className="text-sm text-white/50 py-2">No batches assigned yet.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* To-Do List / Modules Widget */}
+              <div className="bg-white rounded-[24px] border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="text-[20px] font-extrabold text-[#212121]">CJ Modules</h3>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  {moduleShortcuts.map(module => (
+                    <DesktopModuleRow key={module.title} {...module} />
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
       </main>
     </>
   );

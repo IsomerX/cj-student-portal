@@ -2,6 +2,7 @@ export interface AuthUser {
   id: string;
   email: string;
   name?: string;
+  profilePicUrl?: string;
   role?: string;
   schoolId?: string;
   mustResetPassword?: boolean;
