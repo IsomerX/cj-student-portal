@@ -13,11 +13,14 @@ import {
 import { FeeStatsCards } from "@/components/fees/fee-stats";
 import { FeeCard } from "@/components/fees/fee-card";
 import { TransactionItem } from "@/components/fees/transaction-item";
+import { FeeBreakdownModal } from "@/components/fees/fee-breakdown-modal";
 import type { FeeItem } from "@/lib/api/fees";
 
 export default function FeesPage() {
   const [studentId, setStudentId] = useState<string | null>(null);
   const [processingFeeId, setProcessingFeeId] = useState<string | null>(null);
+  const [selectedFee, setSelectedFee] = useState<FeeItem | null>(null);
+  const [showBreakdownModal, setShowBreakdownModal] = useState(false);
 
   // Get student ID from localStorage on mount
   useEffect(() => {
@@ -57,16 +60,24 @@ export default function FeesPage() {
   const initiatePayment = useInitiatePayment();
   const verifyPayment = useVerifyPayment();
 
-  const handlePayment = async (fee: FeeItem) => {
+  // Show fee breakdown modal when "Pay Now" is clicked
+  const handlePayment = (fee: FeeItem) => {
     if (processingFeeId) return;
+    setSelectedFee(fee);
+    setShowBreakdownModal(true);
+  };
 
-    setProcessingFeeId(fee.feeReminderId);
+  // Process payment after user confirms in modal
+  const handleConfirmPayment = async () => {
+    if (!selectedFee || processingFeeId) return;
+
+    setProcessingFeeId(selectedFee.feeReminderId);
 
     try {
       // Step 1: Create payment order
       const paymentOrderResponse = await createPayment.mutateAsync({
-        feeReminderId: fee.feeReminderId,
-        amount: fee.remainingAmount,
+        feeReminderId: selectedFee.feeReminderId,
+        amount: selectedFee.remainingAmount,
       });
 
       if (!paymentOrderResponse.paymentOrder) {
@@ -76,18 +87,21 @@ export default function FeesPage() {
       const { id: paymentOrderId } = paymentOrderResponse.paymentOrder;
 
       // Step 2: Initiate payment (get Razorpay redirect URL)
-      const returnUrl = `${window.location.origin}/fees?payment=success&feeId=${fee.feeReminderId}`;
+      const returnUrl = `${window.location.origin}/fees?payment=success&feeId=${selectedFee.feeReminderId}`;
 
       const initiateResponse = await initiatePayment.mutateAsync({
-        feeReminderId: fee.feeReminderId,
+        feeReminderId: selectedFee.feeReminderId,
         paymentOrderId,
-        paymentMethod: "OTHER",
+        paymentMethod: "UPI",
         returnUrl,
       });
 
       if (!initiateResponse.redirectUrl) {
         throw new Error("Failed to get payment URL");
       }
+
+      // Close modal before redirect
+      setShowBreakdownModal(false);
 
       // Step 3: Open payment page in new tab
       const paymentWindow = window.open(
@@ -100,9 +114,10 @@ export default function FeesPage() {
       const handleMessage = async (event: MessageEvent) => {
         if (event.data?.type === "payment-complete") {
           // Verify payment
-          await verifyPayment.mutateAsync(fee.feeReminderId);
+          await verifyPayment.mutateAsync(selectedFee.feeReminderId);
           await refetchFees();
           setProcessingFeeId(null);
+          setSelectedFee(null);
 
           // Close payment window if still open
           if (paymentWindow && !paymentWindow.closed) {
@@ -119,6 +134,7 @@ export default function FeesPage() {
           clearInterval(checkInterval);
           window.removeEventListener("message", handleMessage);
           setProcessingFeeId(null);
+          setSelectedFee(null);
           // Refresh fees when window closes
           refetchFees();
         }
@@ -131,6 +147,15 @@ export default function FeesPage() {
           : "Failed to initiate payment. Please try again.",
       );
       setProcessingFeeId(null);
+      setShowBreakdownModal(false);
+    }
+  };
+
+  // Close modal
+  const handleCloseModal = () => {
+    if (!processingFeeId) {
+      setShowBreakdownModal(false);
+      setSelectedFee(null);
     }
   };
 
@@ -316,6 +341,15 @@ export default function FeesPage() {
           )}
         </div>
       </div>
+
+      {/* Fee Breakdown Modal */}
+      <FeeBreakdownModal
+        fee={selectedFee}
+        isOpen={showBreakdownModal}
+        onClose={handleCloseModal}
+        onConfirm={handleConfirmPayment}
+        isProcessing={!!processingFeeId}
+      />
     </main>
   );
 }

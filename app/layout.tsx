@@ -5,6 +5,8 @@ import { GeistSans } from "geist/font/sans";
 import { QueryProvider } from "@/providers/query-provider";
 import BottomNav from "@/components/bottom-nav";
 import InstallAssistant from "@/components/pwa/install-assistant";
+import ServiceWorkerRegistrar from "@/components/pwa/sw-registrar";
+import PushNotificationPrompt from "@/components/pwa/push-notification-prompt";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -50,6 +52,8 @@ export default function RootLayout({
         <QueryProvider>
           {children}
           <InstallAssistant />
+          <ServiceWorkerRegistrar />
+          <PushNotificationPrompt />
           <BottomNav />
         </QueryProvider>
       </body>
