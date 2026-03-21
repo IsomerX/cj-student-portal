@@ -258,7 +258,7 @@ export default function FeesPage() {
                   </p>
                 </div>
                 <p className="text-2xl sm:text-3xl font-extrabold text-white">
-                  ₹{stats.totalPending.toLocaleString()}
+                  ₹{(stats.totalPending / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
               <div className="rounded-[16px] bg-white/10 p-4 backdrop-blur-md ring-1 ring-white/20">
@@ -269,7 +269,7 @@ export default function FeesPage() {
                   </p>
                 </div>
                 <p className="text-2xl sm:text-3xl font-extrabold text-white">
-                  ₹{stats.totalPaid.toLocaleString()}
+                  ₹{(stats.totalPaid / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
             </div>

@@ -26,7 +26,7 @@ export function TransactionItem({ transaction }: TransactionItemProps) {
 
         <div className="text-left sm:text-right">
           <p className="text-xl sm:text-2xl font-extrabold text-[#059669] mb-1">
-            ₹{transaction.amount.toLocaleString()}
+            ₹{(transaction.amount / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
           <div className="inline-flex items-center gap-1 rounded-full bg-[#d1fae5] px-2 py-0.5">
             <CheckCircle className="h-3 w-3 text-[#059669]" />
