@@ -20,11 +20,14 @@ export function FeeBreakdownModal({
 }: FeeBreakdownModalProps) {
   if (!isOpen || !fee) return null;
 
-  // Calculate breakdown
-  const baseAmount = fee.remainingAmount;
-  const convenienceFeePercent = 2.5;
-  const convenienceFee = baseAmount * (convenienceFeePercent / 100);
-  const totalAmount = baseAmount + convenienceFee;
+  // Convert amounts from paise to rupees for display
+  const tuitionFee = fee.subtotal / 100;
+  const platformFee = fee.platformFee / 100;
+  const processingFee = fee.processingFee / 100;
+  const totalAmount = fee.remainingAmount / 100;
+  const processingFeePercent = fee.subtotal > 0
+    ? ((fee.processingFee / (fee.subtotal + fee.platformFee)) * 100).toFixed(1)
+    : '3.0';
 
   return (
     <>
@@ -75,10 +78,10 @@ export function FeeBreakdownModal({
               <Info className="h-5 w-5 shrink-0 text-blue-600 mt-0.5" />
               <div>
                 <p className="text-sm font-medium text-blue-900">
-                  Transaction Fee Applied
+                  Fee Breakdown
                 </p>
                 <p className="text-xs text-blue-700 mt-1">
-                  A {convenienceFeePercent}% transaction fee is added to cover payment processing costs.
+                  Includes tuition fee, platform fee, and {processingFeePercent}% processing fee.
                 </p>
               </div>
             </div>
@@ -86,18 +89,25 @@ export function FeeBreakdownModal({
             {/* Breakdown */}
             <div className="space-y-3">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-[#737373] font-medium">Base Fee Amount</span>
+                <span className="text-[#737373] font-medium">Tuition Fee</span>
                 <span className="font-bold text-[#212121]">
-                  ₹{baseAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ₹{tuitionFee.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-[#737373] font-medium">Platform Fee</span>
+                <span className="font-bold text-[#737373]">
+                  ₹{platformFee.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
 
               <div className="flex items-center justify-between text-sm">
                 <span className="text-[#737373] font-medium">
-                  Transaction Fee ({convenienceFeePercent}%)
+                  Processing Fee ({processingFeePercent}%)
                 </span>
                 <span className="font-bold text-[#737373]">
-                  ₹{convenienceFee.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ₹{processingFee.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
 
@@ -123,7 +133,7 @@ export function FeeBreakdownModal({
                   Due date was {new Date(fee.dueDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                   {fee.lateFee && fee.lateFee > 0 && (
                     <span className="block mt-1">
-                      Late fee of ₹{fee.lateFee.toLocaleString()} is included.
+                      Late fee of ₹{(fee.lateFee / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })} is included.
                     </span>
                   )}
                 </p>

@@ -11,6 +11,12 @@ export interface FeeItem {
   dueDate: string;
   isOverdue: boolean;
   lateFee: number | null;
+  // Fee breakdown (all amounts in paise)
+  subtotal: number;
+  discountAmount: number;
+  taxAmount: number;
+  platformFee: number;
+  processingFee: number;
 }
 
 export interface FeeStats {

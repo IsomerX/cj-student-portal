@@ -19,7 +19,7 @@ export function FeeStatsCards({ stats }: FeeStatsProps) {
           </h3>
         </div>
         <p className="text-3xl font-bold text-gray-900">
-          ₹{stats.totalPending.toLocaleString()}
+          ₹{(stats.totalPending / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </p>
         {stats.nextDueDate && (
           <p className="text-xs text-gray-600 mt-2">
@@ -37,7 +37,7 @@ export function FeeStatsCards({ stats }: FeeStatsProps) {
           <h3 className="text-sm font-semibold text-gray-700">Total Paid</h3>
         </div>
         <p className="text-3xl font-bold text-gray-900">
-          ₹{stats.totalPaid.toLocaleString()}
+          ₹{(stats.totalPaid / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </p>
       </div>
     </div>

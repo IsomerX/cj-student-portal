@@ -46,7 +46,7 @@ export function FeeCard({ fee, onPayment, isProcessing }: FeeCardProps) {
           </h3>
           {fee.lateFee && fee.lateFee > 0 && (
             <p className="text-xs text-[#dc2626] font-medium">
-              Includes late fee: ₹{fee.lateFee.toLocaleString()}
+              Includes late fee: ₹{(fee.lateFee / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
             </p>
           )}
         </div>
@@ -63,7 +63,7 @@ export function FeeCard({ fee, onPayment, isProcessing }: FeeCardProps) {
         <div>
           <p className="text-xs text-[#737373] mb-1">Amount Due</p>
           <p className="text-2xl sm:text-3xl font-extrabold text-[#212121]">
-            ₹{fee.remainingAmount.toLocaleString()}
+            ₹{(fee.remainingAmount / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
           <p className={`text-xs ${fee.isOverdue ? "text-[#dc2626]" : "text-[#737373]"} mt-1 font-medium`}>
             Due: {new Date(fee.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
