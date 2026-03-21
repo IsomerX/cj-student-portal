@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useCallback, useMemo, useRef, useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useMemo, useEffect, useState } from 'react';
 import {
     HMSRoomProvider,
     useHMSActions,
@@ -69,21 +69,21 @@ function HmsVideoContextProvider({ children }: { children: ReactNode }) {
     const hmsNotification = useHMSNotifications();
     const { error: autoplayError, unblockAudio, resetError: resetAutoplayError } = useAutoplayError();
 
-    // Build a stable peer-audio lookup map
-    // We need to individually call selectIsPeerAudioEnabled for each peer,
-    // but since it's a selector factory, we track it via a ref-based approach.
-    // Instead, we provide a function that uses the store directly.
-    const storeRef = useRef(useHMSStore);
-    storeRef.current = useHMSStore;
+    // Build a peer audio state map using a single store subscription.
+    // Calling useHMSStore (a hook) inside a callback violates Rules of Hooks,
+    // so we compute the full map here at the component level instead.
+    const peerAudioMap = useHMSStore((store) => {
+        const peers = selectPeers(store);
+        const result: Record<string, boolean> = {};
+        for (const peer of peers) {
+            result[peer.id] = selectIsPeerAudioEnabled(peer.id)(store);
+        }
+        return result;
+    });
 
     const isPeerAudioEnabled = useCallback((peerId: string) => {
-        // Find the peer to get their audioTrack, then check from current peers
-        const peer = hmsPeers.find((p) => p.id === peerId);
-        if (!peer?.audioTrack) return false;
-        // We can't call hooks dynamically, so we use the raw selector approach
-        // The HMS store is reactive, so this will be correct at render time
-        return storeRef.current(selectIsPeerAudioEnabled(peer.id));
-    }, [hmsPeers]);
+        return peerAudioMap[peerId] ?? false;
+    }, [peerAudioMap]);
 
     const peers = useMemo(() => hmsPeers.map(mapHmsPeerToVideoPeer), [hmsPeers]);
     const localPeer = useMemo(() => hmsLocalPeer ? mapHmsPeerToVideoPeer(hmsLocalPeer) : null, [hmsLocalPeer]);
