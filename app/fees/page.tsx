@@ -15,9 +15,12 @@ import { FeeCard } from "@/components/fees/fee-card";
 import { TransactionItem } from "@/components/fees/transaction-item";
 import { FeeBreakdownModal } from "@/components/fees/fee-breakdown-modal";
 import type { FeeItem } from "@/lib/api/fees";
+import { getMyCoachingEnrollments, type MyCoachingEnrollment } from "@/lib/api/coachingEnrollment";
 
 export default function FeesPage() {
   const [studentId, setStudentId] = useState<string | null>(null);
+  const [coachingEnrollments, setCoachingEnrollments] = useState<MyCoachingEnrollment[]>([]);
+  const [enrollmentsLoading, setEnrollmentsLoading] = useState(false);
   const [processingFeeId, setProcessingFeeId] = useState<string | null>(null);
   const [selectedFee, setSelectedFee] = useState<FeeItem | null>(null);
   const [showBreakdownModal, setShowBreakdownModal] = useState(false);
@@ -36,6 +39,15 @@ export default function FeesPage() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (!studentId) return;
+    setEnrollmentsLoading(true);
+    getMyCoachingEnrollments()
+      .then(setCoachingEnrollments)
+      .catch(() => {/* silent */})
+      .finally(() => setEnrollmentsLoading(false));
+  }, [studentId]);
 
   // Fetch data
   const {
@@ -279,6 +291,55 @@ export default function FeesPage() {
 
       {/* Content Area */}
       <div className="relative z-10 mx-auto mt-4 sm:mt-6 max-w-4xl px-3 sm:px-6 lg:px-8">
+        {/* Coaching Enrollments Section */}
+        {(enrollmentsLoading || coachingEnrollments.length > 0) && (
+          <section className="mb-6">
+            <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-[#737373] mb-4 pl-1">My Coaching Enrollments</h2>
+            {enrollmentsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {coachingEnrollments.map((enrollment) => (
+                  <div
+                    key={enrollment.id}
+                    className="flex items-start justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-gray-900 truncate">
+                        {enrollment.school?.name ?? 'Coaching Center'}
+                      </p>
+                      <p className="text-sm text-gray-500 mt-0.5">
+                        Batch: {enrollment.batch?.name ?? '—'} · {enrollment.billingFrequency.charAt(0) + enrollment.billingFrequency.slice(1).toLowerCase()}
+                      </p>
+                      {enrollment.nextBillingDate && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          Next billing:{' '}
+                          {new Date(enrollment.nextBillingDate).toLocaleDateString('en-IN', {
+                            day: 'numeric', month: 'short', year: 'numeric',
+                          })}
+                        </p>
+                      )}
+                    </div>
+                    <span className={`shrink-0 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
+                      enrollment.accessStatus === 'ACTIVE'
+                        ? 'bg-green-100 text-green-700'
+                        : enrollment.accessStatus === 'SUSPENDED'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {enrollment.accessStatus === 'ACTIVE' ? 'Active'
+                        : enrollment.accessStatus === 'SUSPENDED' ? 'Suspended'
+                        : 'Deactivated'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
         {/* Pending Fees */}
         <div className="mb-8">
           <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-[#737373] mb-4 pl-1">
