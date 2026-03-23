@@ -218,7 +218,7 @@ export async function fetchMyAssignments(
       `/assignments/my${queryString}`,
     );
 
-    return response.data.data ?? [];
+    return response.data ?? [];
   } catch (error) {
     throw toAssignmentsApiError(error);
   }
@@ -230,11 +230,11 @@ export async function fetchAssignmentDetail(assignmentId: string): Promise<Assig
       `/assignments/${assignmentId}/my-submission`,
     );
 
-    if (!response.data.data) {
+    if (!response.data) {
       throw new AssignmentsApiError("Assignment detail could not be loaded.");
     }
 
-    return response.data.data;
+    return response.data;
   } catch (error) {
     throw toAssignmentsApiError(error);
   }
@@ -277,7 +277,7 @@ export async function refreshAssignmentUrl(url: string): Promise<string> {
 export async function fetchMyBatches(): Promise<BatchInfo[]> {
   try {
     const response = await apiClient.get<ApiEnvelope<BatchInfo[]>>("/batches/my");
-    return response.data.data ?? [];
+    return response.data ?? [];
   } catch (error) {
     throw toAssignmentsApiError(error);
   }
@@ -291,7 +291,7 @@ export async function fetchClassroomAnnouncements(
       `/classes/${encodeURIComponent(classSectionId)}/announcements`,
     );
 
-    return response.data.data ?? [];
+    return response.data ?? [];
   } catch (error) {
     throw toAssignmentsApiError(error);
   }
@@ -305,7 +305,7 @@ export async function fetchClassroomActivityLogs(
       `/classes/${encodeURIComponent(classSectionId)}/activity-logs`,
     );
 
-    return response.data.data ?? [];
+    return response.data ?? [];
   } catch (error) {
     throw toAssignmentsApiError(error);
   }

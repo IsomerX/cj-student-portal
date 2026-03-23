@@ -95,11 +95,7 @@ export async function fetchMyLiveClasses(
 
         const response = await apiClient.get<ApiEnvelope<LiveClass[]>>(url);
 
-        if (response.data.success === false) {
-            throw new LiveClassesApiError(response.data.message || "Failed to fetch live classes.");
-        }
-
-        return response.data.data ?? [];
+        return response.data ?? [];
     } catch (error) {
         throw toLiveClassesApiError(error);
     }
@@ -111,15 +107,11 @@ export async function fetchLiveClassToken(classId: string): Promise<AuthTokenRes
             `/live-classes/${classId}/token`
         );
 
-        if (response.data.success === false) {
-            throw new LiveClassesApiError(response.data.message || "Failed to get class token.");
-        }
-
-        if (!response.data.data) {
+        if (!response.data) {
             throw new LiveClassesApiError("Empty token data.");
         }
 
-        return response.data.data;
+        return response.data;
     } catch (error) {
         throw toLiveClassesApiError(error);
     }
@@ -129,9 +121,6 @@ export async function joinLiveClass(classId: string): Promise<void> {
     try {
         const response = await apiClient.post<ApiEnvelope<any>>(`/live-classes/${classId}/join`);
 
-        if (response.data.success === false) {
-            throw new LiveClassesApiError(response.data.message || "Failed to join class.");
-        }
     } catch (error) {
         throw toLiveClassesApiError(error);
     }
@@ -143,11 +132,7 @@ export async function fetchRecordingsByBatch(batchId: string): Promise<Recording
             `/recordings/batch/${batchId}`
         );
 
-        if (response.data.success === false) {
-            throw new LiveClassesApiError(response.data.message || "Failed to fetch recordings.");
-        }
-
-        return response.data.data ?? [];
+        return response.data ?? [];
     } catch (error) {
         throw toLiveClassesApiError(error);
     }

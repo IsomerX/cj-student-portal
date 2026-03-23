@@ -25,6 +25,7 @@ import { clearSession, getStoredToken } from "@/lib/auth/storage";
 import type { LiveClass } from "@/lib/api/live-classes";
 import { cn } from "@/lib/utils";
 import { NameSetupDialog } from "@/components/NameSetupDialog";
+import NotificationDropdown from "@/components/NotificationDropdown";
 
 type ModuleShortcut = {
   title: string;
@@ -375,6 +376,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex items-center justify-end gap-2">
+              <NotificationDropdown />
               <Button
                 type="button"
                 variant="outline"

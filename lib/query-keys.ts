@@ -28,3 +28,11 @@ export const liveClassQueryKeys = {
   token: (classId: string) => [...liveClassQueryKeys.all, "token", classId] as const,
   recordings: () => [...liveClassQueryKeys.all, "recordings"] as const,
 };
+
+export const feeQueryKeys = {
+  all: ["fees"] as const,
+  pending: (studentId: string | null) => [...feeQueryKeys.all, "pending", studentId] as const,
+  statistics: (studentId: string | null) => [...feeQueryKeys.all, "statistics", studentId] as const,
+  transactions: (studentId: string | null, limit: number, offset: number) =>
+    [...feeQueryKeys.all, "transactions", studentId, limit, offset] as const,
+};

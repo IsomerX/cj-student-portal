@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Clapperboard, Home, Video, type LucideIcon } from "lucide-react";
+import { Clapperboard, Home, Video, Wallet, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -16,6 +16,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", icon: Home, label: "Home" },
   { href: "/live", icon: Video, label: "Live" },
   { href: "/live/recordings", icon: Clapperboard, label: "Recordings" },
+  { href: "/fees", icon: Wallet, label: "Fees" },
 ];
 
 const HIDDEN_PATHS = ["/login", "/auth"];

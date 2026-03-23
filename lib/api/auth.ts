@@ -45,13 +45,7 @@ function getTokenFromBody(body: AuthResponseBody): string | null {
 }
 
 function getUserFromBody(body: Record<string, unknown>): AuthUser | null {
-  const directUser = body.user as AuthUser | undefined;
-  if (directUser) return directUser;
-
-  const nestedData = body.data as Record<string, unknown> | undefined;
-  if (!nestedData) return null;
-
-  return (nestedData.user as AuthUser | undefined) ?? (nestedData as AuthUser);
+  return (body.user as AuthUser | undefined) ?? null;
 }
 
 function toAuthApiError(error: unknown): AuthApiError {
@@ -160,11 +154,7 @@ export async function updateUserName(userId: string, name: string): Promise<Auth
   try {
     const response = await apiClient.put<ProfileUpdateResponseBody>(`/users/${userId}`, { name });
 
-    if (response.data.success === false) {
-      throw new AuthApiError(response.data.error || response.data.message || "Failed to update profile.");
-    }
-
-    return response.data.data ?? null;
+    return response.data ?? null;
   } catch (error) {
     throw toAuthApiError(error);
   }

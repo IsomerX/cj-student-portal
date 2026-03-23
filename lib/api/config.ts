@@ -33,7 +33,13 @@ apiClient.interceptors.request.use((config) => {
 });
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const d = response.data;
+    if (d && typeof d === 'object' && 'success' in d && 'data' in d) {
+      response.data = d.data;
+    }
+    return response;
+  },
   (error) => {
     if (typeof window !== "undefined" && error.response?.status === 401) {
       const currentPath = window.location.pathname;
