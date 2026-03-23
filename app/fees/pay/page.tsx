@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,7 @@ declare global {
   }
 }
 
-export default function PayFeePage() {
+function PayFeePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const schoolId = searchParams.get('schoolId');
@@ -282,5 +282,13 @@ export default function PayFeePage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function PayFeePage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+      <PayFeePageContent />
+    </Suspense>
   );
 }
