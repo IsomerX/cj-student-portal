@@ -152,7 +152,7 @@ export async function fetchProfile(): Promise<AuthUser> {
 
 export async function updateUserName(userId: string, name: string): Promise<AuthUser | null> {
   try {
-    const response = await apiClient.put<ProfileUpdateResponseBody>(`/users/${userId}`, { name });
+    const response = await apiClient.put<AuthUser>(`/users/${userId}`, { name });
 
     return response.data ?? null;
   } catch (error) {

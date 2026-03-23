@@ -216,7 +216,7 @@ export async function fetchMyAssignments(
 ): Promise<StudentAssignment[]> {
   try {
     const queryString = buildQueryString(filters);
-    const response = await apiClient.get<ApiEnvelope<StudentAssignment[]>>(
+    const response = await apiClient.get<StudentAssignment[]>(
       `/assignments/my${queryString}`,
     );
 
@@ -228,7 +228,7 @@ export async function fetchMyAssignments(
 
 export async function fetchAssignmentDetail(assignmentId: string): Promise<AssignmentDetail> {
   try {
-    const response = await apiClient.get<ApiEnvelope<AssignmentDetail>>(
+    const response = await apiClient.get<AssignmentDetail>(
       `/assignments/${assignmentId}/my-submission`,
     );
 
@@ -266,7 +266,7 @@ export async function cancelAssignmentSubmission(assignmentId: string): Promise<
 
 export async function refreshAssignmentUrl(url: string): Promise<string> {
   try {
-    const response = await apiClient.post<ApiEnvelope<never>>("/assignments/refresh-url", {
+    const response = await apiClient.post<{ url: string }>("/assignments/refresh-url", {
       url,
     });
 
@@ -278,7 +278,7 @@ export async function refreshAssignmentUrl(url: string): Promise<string> {
 
 export async function fetchMyBatches(): Promise<BatchInfo[]> {
   try {
-    const response = await apiClient.get<ApiEnvelope<BatchInfo[]>>("/batches/my");
+    const response = await apiClient.get<BatchInfo[]>("/batches/my");
     return response.data ?? [];
   } catch (error) {
     throw toAssignmentsApiError(error);
@@ -289,7 +289,7 @@ export async function fetchClassroomAnnouncements(
   classSectionId: string,
 ): Promise<ClassroomAnnouncement[]> {
   try {
-    const response = await apiClient.get<ApiEnvelope<ClassroomAnnouncement[]>>(
+    const response = await apiClient.get<ClassroomAnnouncement[]>(
       `/classes/${encodeURIComponent(classSectionId)}/announcements`,
     );
 
@@ -303,7 +303,7 @@ export async function fetchClassroomActivityLogs(
   classSectionId: string,
 ): Promise<ClassroomActivityLog[]> {
   try {
-    const response = await apiClient.get<ApiEnvelope<ClassroomActivityLog[]>>(
+    const response = await apiClient.get<ClassroomActivityLog[]>(
       `/classes/${encodeURIComponent(classSectionId)}/activity-logs`,
     );
 

@@ -28,7 +28,7 @@ export interface NotificationActionResponse {
  * Get all notifications for the current user
  */
 export async function getNotifications(): Promise<Notification[]> {
-  const response = await apiClient.get<NotificationsResponse>("/notifications");
+  const response = await apiClient.get<Notification[]>("/notifications");
   return response.data || [];
 }
 

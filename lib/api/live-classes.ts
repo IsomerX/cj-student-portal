@@ -93,7 +93,7 @@ export async function fetchMyLiveClasses(
         const query = queryString.toString();
         const url = `/live-classes/my-classes${query ? `?${query}` : ""}`;
 
-        const response = await apiClient.get<ApiEnvelope<LiveClass[]>>(url);
+        const response = await apiClient.get<LiveClass[]>(url);
 
         return response.data ?? [];
     } catch (error) {
@@ -103,7 +103,7 @@ export async function fetchMyLiveClasses(
 
 export async function fetchLiveClassToken(classId: string): Promise<AuthTokenResponse> {
     try {
-        const response = await apiClient.get<ApiEnvelope<AuthTokenResponse>>(
+        const response = await apiClient.get<AuthTokenResponse>(
             `/live-classes/${classId}/token`
         );
 
@@ -119,7 +119,7 @@ export async function fetchLiveClassToken(classId: string): Promise<AuthTokenRes
 
 export async function joinLiveClass(classId: string): Promise<void> {
     try {
-        const response = await apiClient.post<ApiEnvelope<any>>(`/live-classes/${classId}/join`);
+        const response = await apiClient.post<any>(`/live-classes/${classId}/join`);
 
     } catch (error) {
         throw toLiveClassesApiError(error);
@@ -128,7 +128,7 @@ export async function joinLiveClass(classId: string): Promise<void> {
 
 export async function fetchRecordingsByBatch(batchId: string): Promise<Recording[]> {
     try {
-        const response = await apiClient.get<ApiEnvelope<Recording[]>>(
+        const response = await apiClient.get<Recording[]>(
             `/recordings/batch/${batchId}`
         );
 

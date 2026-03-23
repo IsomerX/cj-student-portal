@@ -186,7 +186,7 @@ function buildQueryString<T extends object>(params: T) {
 export async function fetchDoubtSubjects(classSectionId?: string): Promise<DoubtSubject[]> {
   try {
     const queryString = buildQueryString({ classSectionId });
-    const response = await apiClient.get<ApiEnvelope<DoubtSubject[]>>(
+    const response = await apiClient.get<DoubtSubject[]>(
       `/teacher-management/subjects${queryString}`,
     );
 
@@ -201,7 +201,7 @@ export async function fetchDoubtFeed(
 ): Promise<DoubtFeedResult> {
   try {
     const queryString = buildQueryString(params);
-    const response = await apiClient.get<ApiEnvelope<DoubtFeedResult>>(
+    const response = await apiClient.get<DoubtFeedResult>(
       `/doubts/feed${queryString}`,
     );
 
@@ -220,7 +220,7 @@ export async function fetchMyDoubts(
 ): Promise<MyDoubtsResult> {
   try {
     const queryString = buildQueryString(params);
-    const response = await apiClient.get<ApiEnvelope<MyDoubtsResult>>(`/doubts${queryString}`);
+    const response = await apiClient.get<MyDoubtsResult>(`/doubts${queryString}`);
 
     if (!response.data) {
       throw new DoubtsApiError("My doubts data could not be loaded.");
@@ -234,7 +234,7 @@ export async function fetchMyDoubts(
 
 export async function fetchSimilarDoubts(text: string): Promise<SimilarDoubt[]> {
   try {
-    const response = await apiClient.post<ApiEnvelope<SimilarDoubt[]>>("/doubts/check-similar", {
+    const response = await apiClient.post<SimilarDoubt[]>("/doubts/check-similar", {
       text,
     });
 
@@ -246,7 +246,7 @@ export async function fetchSimilarDoubts(text: string): Promise<SimilarDoubt[]> 
 
 export async function fetchDoubtById(doubtId: string): Promise<DoubtDetail> {
   try {
-    const response = await apiClient.get<ApiEnvelope<DoubtDetail>>(`/doubts/${doubtId}`);
+    const response = await apiClient.get<DoubtDetail>(`/doubts/${doubtId}`);
 
     if (!response.data) {
       throw new DoubtsApiError("Doubt details could not be loaded.");
@@ -260,7 +260,7 @@ export async function fetchDoubtById(doubtId: string): Promise<DoubtDetail> {
 
 export async function fetchDoubtMessages(doubtId: string): Promise<DoubtMessage[]> {
   try {
-    const response = await apiClient.get<ApiEnvelope<DoubtMessage[]>>(`/doubts/${doubtId}/messages`);
+    const response = await apiClient.get<DoubtMessage[]>(`/doubts/${doubtId}/messages`);
 
     return response.data ?? [];
   } catch (error) {
@@ -270,7 +270,7 @@ export async function fetchDoubtMessages(doubtId: string): Promise<DoubtMessage[
 
 export async function fetchSimilarDoubtsById(doubtId: string): Promise<SimilarDoubt[]> {
   try {
-    const response = await apiClient.get<ApiEnvelope<SimilarDoubt[]>>(`/doubts/${doubtId}/similar`);
+    const response = await apiClient.get<SimilarDoubt[]>(`/doubts/${doubtId}/similar`);
 
     return response.data ?? [];
   } catch (error) {
@@ -283,7 +283,7 @@ export async function addDoubtMessage(
   payload: AddDoubtMessagePayload,
 ): Promise<DoubtMessage> {
   try {
-    const response = await apiClient.post<ApiEnvelope<DoubtMessage>>(
+    const response = await apiClient.post<DoubtMessage>(
       `/doubts/${doubtId}/messages`,
       payload,
     );
@@ -303,7 +303,7 @@ export async function rateDoubt(
   payload: RateDoubtPayload,
 ): Promise<DoubtDetail> {
   try {
-    const response = await apiClient.post<ApiEnvelope<DoubtDetail>>(
+    const response = await apiClient.post<DoubtDetail>(
       `/doubts/${doubtId}/rate`,
       payload,
     );
@@ -320,7 +320,7 @@ export async function rateDoubt(
 
 export async function createDoubt(payload: CreateDoubtPayload): Promise<DoubtItem> {
   try {
-    const response = await apiClient.post<ApiEnvelope<DoubtItem>>("/doubts", payload);
+    const response = await apiClient.post<DoubtItem>("/doubts", payload);
 
     if (!response.data) {
       throw new DoubtsApiError("Doubt could not be created.");

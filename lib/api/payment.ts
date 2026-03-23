@@ -2,7 +2,7 @@
  * Payment API Client - Student Portal
  */
 
-import { apiClient } from './client';
+import { apiClient } from './config';
 
 export interface CreatePaymentOrderRequest {
   schoolId: string;
