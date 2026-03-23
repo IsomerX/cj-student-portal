@@ -29,7 +29,7 @@ export interface NotificationActionResponse {
  */
 export async function getNotifications(): Promise<Notification[]> {
   const response = await apiClient.get<NotificationsResponse>("/notifications");
-  return response.data.data || [];
+  return response.data || [];
 }
 
 /**

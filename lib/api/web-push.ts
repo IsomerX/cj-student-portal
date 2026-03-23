@@ -18,7 +18,7 @@ export const webPushApi = {
    */
   getVapidPublicKey: async (): Promise<string> => {
     const response = await apiClient.get('/web-push/vapid-public-key');
-    return response.data.data.publicKey;
+    return response.data.publicKey;
   },
 
   /**

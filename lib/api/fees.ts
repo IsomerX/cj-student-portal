@@ -76,7 +76,7 @@ export async function getPendingFees(studentId: string): Promise<FeeItem[]> {
   const response = await apiClient.get("/fees/pending", {
     params: { studentId },
   });
-  return response.data.data || [];
+  return response.data || [];
 }
 
 /**
@@ -86,7 +86,7 @@ export async function getFeeStatistics(studentId: string): Promise<FeeStats> {
   const response = await apiClient.get("/fees/summary", {
     params: { studentId },
   });
-  return response.data.data;
+  return response.data;
 }
 
 /**
@@ -101,7 +101,7 @@ export async function getTransactionHistory(
     params: { studentId, limit, offset },
   });
   return {
-    transactions: response.data.data || [],
+    transactions: response.data || [],
     total: response.data.total || 0,
   };
 }

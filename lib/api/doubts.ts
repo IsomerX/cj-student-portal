@@ -190,7 +190,7 @@ export async function fetchDoubtSubjects(classSectionId?: string): Promise<Doubt
       `/teacher-management/subjects${queryString}`,
     );
 
-    return response.data.data ?? [];
+    return response.data ?? [];
   } catch (error) {
     throw toDoubtsApiError(error);
   }
@@ -205,11 +205,11 @@ export async function fetchDoubtFeed(
       `/doubts/feed${queryString}`,
     );
 
-    if (!response.data.data) {
+    if (!response.data) {
       throw new DoubtsApiError("Doubt feed data could not be loaded.");
     }
 
-    return response.data.data;
+    return response.data;
   } catch (error) {
     throw toDoubtsApiError(error);
   }
@@ -222,11 +222,11 @@ export async function fetchMyDoubts(
     const queryString = buildQueryString(params);
     const response = await apiClient.get<ApiEnvelope<MyDoubtsResult>>(`/doubts${queryString}`);
 
-    if (!response.data.data) {
+    if (!response.data) {
       throw new DoubtsApiError("My doubts data could not be loaded.");
     }
 
-    return response.data.data;
+    return response.data;
   } catch (error) {
     throw toDoubtsApiError(error);
   }
@@ -238,7 +238,7 @@ export async function fetchSimilarDoubts(text: string): Promise<SimilarDoubt[]> 
       text,
     });
 
-    return response.data.data ?? [];
+    return response.data ?? [];
   } catch (error) {
     throw toDoubtsApiError(error);
   }
@@ -248,11 +248,11 @@ export async function fetchDoubtById(doubtId: string): Promise<DoubtDetail> {
   try {
     const response = await apiClient.get<ApiEnvelope<DoubtDetail>>(`/doubts/${doubtId}`);
 
-    if (!response.data.data) {
+    if (!response.data) {
       throw new DoubtsApiError("Doubt details could not be loaded.");
     }
 
-    return response.data.data;
+    return response.data;
   } catch (error) {
     throw toDoubtsApiError(error);
   }
@@ -262,7 +262,7 @@ export async function fetchDoubtMessages(doubtId: string): Promise<DoubtMessage[
   try {
     const response = await apiClient.get<ApiEnvelope<DoubtMessage[]>>(`/doubts/${doubtId}/messages`);
 
-    return response.data.data ?? [];
+    return response.data ?? [];
   } catch (error) {
     throw toDoubtsApiError(error);
   }
@@ -272,7 +272,7 @@ export async function fetchSimilarDoubtsById(doubtId: string): Promise<SimilarDo
   try {
     const response = await apiClient.get<ApiEnvelope<SimilarDoubt[]>>(`/doubts/${doubtId}/similar`);
 
-    return response.data.data ?? [];
+    return response.data ?? [];
   } catch (error) {
     throw toDoubtsApiError(error);
   }
@@ -288,11 +288,11 @@ export async function addDoubtMessage(
       payload,
     );
 
-    if (!response.data.data) {
+    if (!response.data) {
       throw new DoubtsApiError("Message could not be sent.");
     }
 
-    return response.data.data;
+    return response.data;
   } catch (error) {
     throw toDoubtsApiError(error);
   }
@@ -308,11 +308,11 @@ export async function rateDoubt(
       payload,
     );
 
-    if (!response.data.data) {
+    if (!response.data) {
       throw new DoubtsApiError("Rating could not be submitted.");
     }
 
-    return response.data.data;
+    return response.data;
   } catch (error) {
     throw toDoubtsApiError(error);
   }
@@ -322,11 +322,11 @@ export async function createDoubt(payload: CreateDoubtPayload): Promise<DoubtIte
   try {
     const response = await apiClient.post<ApiEnvelope<DoubtItem>>("/doubts", payload);
 
-    if (!response.data.data) {
+    if (!response.data) {
       throw new DoubtsApiError("Doubt could not be created.");
     }
 
-    return response.data.data;
+    return response.data;
   } catch (error) {
     throw toDoubtsApiError(error);
   }

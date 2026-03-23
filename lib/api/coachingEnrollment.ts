@@ -21,5 +21,5 @@ export interface MyCoachingEnrollment {
  */
 export async function getMyCoachingEnrollments(): Promise<MyCoachingEnrollment[]> {
   const response = await apiClient.get('/coaching/my-enrollments');
-  return response.data.data || [];
+  return response.data || [];
 }
