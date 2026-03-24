@@ -103,8 +103,14 @@ export function FeeBreakdownModal({
               </div>
 
               <div className="flex items-center justify-between text-sm">
-                <span className="text-[#737373] font-medium">
+                <span className="text-[#737373] font-medium flex items-center gap-1.5">
                   Processing Fee ({processingFeePercent}%)
+                  <span className="group relative">
+                    <Info className="h-3.5 w-3.5 text-[#737373]/60 cursor-help" />
+                    <span className="invisible group-hover:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900 rounded-lg whitespace-nowrap z-50 shadow-lg">
+                      Not applicable when paid through cash
+                    </span>
+                  </span>
                 </span>
                 <span className="font-bold text-[#737373]">
                   ₹{processingFee.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
