@@ -8,9 +8,11 @@ export interface MyCoachingEnrollment {
   schoolId: string;
   batchId: string;
   accessStatus: BatchAccessStatus;
+  accessRevokedAt: string | null; // ABS-2362: Access revocation timestamp
   billingFrequency: BillingFrequency;
   nextBillingDate: string | null;
   enrolledAt: string;
+  classification: string;
   school: { id: string; name: string } | null;
   batch: { id: string; name: string } | null;
 }
