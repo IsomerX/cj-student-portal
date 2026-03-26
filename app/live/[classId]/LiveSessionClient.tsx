@@ -25,6 +25,8 @@ import {
     MonitorUp,
     X,
     Send,
+    FileText,
+    Download,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -44,12 +46,21 @@ import { liveClassQueryKeys } from "@/lib/query-keys";
 
 type ConnectionState = "loading" | "waiting" | "joining" | "fetching-token" | "connecting" | "connected" | "disconnected" | "removed" | "error";
 
+interface ChatAttachment {
+    id: string;
+    name: string;
+    type: string;
+    size: number;
+    url: string;
+}
+
 interface ChatMessage {
     id: string;
     sender: string;
     text: string;
     timestamp: Date;
     isLocal?: boolean;
+    attachments?: ChatAttachment[];
 }
 
 interface FloatingEmoji {
@@ -257,11 +268,37 @@ function ChatPanel({
                     <p className="text-sm text-[#737373] text-center py-8">No messages yet</p>
                 )}
                 {messages.map((msg) => (
-                    <div key={msg.id} className="min-w-0 overflow-hidden">
+                    <div key={msg.id} className="min-w-0 overflow-hidden space-y-1.5">
                         <span className="block truncate text-xs font-semibold text-[#c4a57b]">{msg.sender}</span>
-                        <p className="break-words whitespace-pre-wrap text-sm leading-relaxed text-[#414141]">
-                            {msg.text}
-                        </p>
+                        {msg.text && (
+                            <p className="break-words whitespace-pre-wrap text-sm leading-relaxed text-[#414141]">
+                                {msg.text}
+                            </p>
+                        )}
+                        {msg.attachments && msg.attachments.length > 0 && (
+                            <div className="space-y-1.5">
+                                {msg.attachments.map((attachment) => (
+                                    <a
+                                        key={attachment.id}
+                                        href={attachment.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#f5f0e5] hover:bg-[#ece5d5] transition-colors border border-[#e5dcc5]"
+                                    >
+                                        <FileText className="w-4 h-4 text-[#c4a57b] flex-shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-medium text-[#414141] truncate">
+                                                {attachment.name}
+                                            </p>
+                                            <p className="text-[10px] text-[#737373]">
+                                                {(attachment.size / 1024).toFixed(1)} KB
+                                            </p>
+                                        </div>
+                                        <Download className="w-3.5 h-3.5 text-[#737373] flex-shrink-0" />
+                                    </a>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 ))}
             </div>
@@ -761,12 +798,28 @@ export default function LiveSessionClient() {
             // Camera request from teacher — handled in a separate effect
             if (msg.type === "request_video") return;
 
+            // Parse message - could be JSON with attachments or plain text
+            let text = msg.message || "";
+            let attachments: ChatAttachment[] | undefined;
+
+            if (msg.type === "chat") {
+                try {
+                    const parsed = JSON.parse(msg.message);
+                    text = parsed.text || "";
+                    attachments = parsed.attachments || undefined;
+                } catch {
+                    // Not JSON, use as plain text
+                    text = msg.message || "";
+                }
+            }
+
             const newMsg: ChatMessage = {
                 id: msg.id || Date.now().toString(),
                 sender: msg.senderName || "Unknown",
-                text: msg.message || "",
+                text,
                 timestamp: new Date(msg.time || Date.now()),
                 isLocal: false,
+                attachments,
             };
             setChatMessages((prev) => [...prev, newMsg]);
             if (!showChat) setUnreadCount((c) => c + 1);
