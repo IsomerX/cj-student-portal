@@ -461,22 +461,35 @@ export default function LiveSessionClient() {
             const errMessage = liveClassError?.message || "";
             const errLower = errMessage.toLowerCase();
             const is403 = liveClassError?.status === 403 || errLower.includes("403");
+            const is410 = liveClassError?.status === 410;
+            const isRemoved =
+                is410 ||
+                errLower.includes("removed from this class") ||
+                errLower.includes("invitation was revoked");
             const isEnded =
-                liveClassError?.status === 410 ||
                 errLower.includes("class has ended") ||
                 errLower.includes("session has ended") ||
                 errLower.includes("was cancelled");
             hasJoinedRef.current = false;
 
-            if (isEnded) {
+            // Student was removed/rejected from the class
+            if (isRemoved) {
+                setErrorMessage(errMessage || "You have been removed from this class.");
+                setConnectionState("removed");
+                // Redirect to live classes page after 3 seconds
+                setTimeout(() => {
+                    router.push("/live");
+                }, 3000);
+            // Class ended normally
+            } else if (isEnded) {
                 setErrorMessage(errMessage || "The live session has ended.");
                 setConnectionState("removed");
             // Banned or suspended — show error, don't poll
             } else if (errLower.includes("banned") || errLower.includes("suspended")) {
                 setErrorMessage(errMessage);
                 setConnectionState("error");
-            // Waiting room — keep polling
-            } else if (is403 && (errLower.includes("not admitted") || errLower.includes("not invited"))) {
+            // Waiting room — keep polling (only for "not admitted", not "not invited")
+            } else if (is403 && errLower.includes("not admitted")) {
                 setConnectionState("waiting");
             // Other 403 — show error
             } else if (is403) {
