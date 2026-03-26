@@ -41,6 +41,7 @@ import {
 import { joinLiveClass, leaveLiveClass, LiveClassesApiError } from "@/lib/api/live-classes";
 import { useLiveClassTokenQuery } from "@/hooks/use-live-classes";
 import { liveClassQueryKeys } from "@/lib/query-keys";
+import PollCard from "./PollCard";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -61,6 +62,29 @@ interface ChatMessage {
     timestamp: Date;
     isLocal?: boolean;
     attachments?: ChatAttachment[];
+}
+
+interface PollOption {
+    id: string;
+    text: string;
+    voteCount: number;
+    percentage?: number;
+    voters?: Array<{ id: string; name: string; profilePic?: string | null }>;
+}
+
+interface Poll {
+    id: string;
+    question: string;
+    options: PollOption[];
+    totalVotes: number;
+    allowMultipleAnswers: boolean;
+    isAnonymous: boolean;
+    showResultsBeforeVote: boolean;
+    status: "ACTIVE" | "CLOSED" | "EXPIRED";
+    createdBy: { id: string; name: string; profilePic?: string | null };
+    createdAt: string;
+    hasVoted: boolean;
+    myVotes: string[];
 }
 
 interface FloatingEmoji {
@@ -231,11 +255,15 @@ function TilePinButton({
 
 function ChatPanel({
     messages,
+    polls,
     onSend,
+    onVotePoll,
     onClose,
 }: {
     messages: ChatMessage[];
+    polls?: Poll[];
     onSend: (text: string) => void;
+    onVotePoll?: (pollId: string, optionIds: string[]) => Promise<void>;
     onClose: () => void;
 }) {
     const [text, setText] = useState("");
@@ -264,7 +292,17 @@ function ChatPanel({
                 ref={scrollRef}
                 className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-3 space-y-3 scrollbar-thin"
             >
-                {messages.length === 0 && (
+                {/* Polls */}
+                {polls && polls.map((poll) => (
+                    <PollCard
+                        key={poll.id}
+                        poll={poll}
+                        onVote={onVotePoll ? (optionIds) => onVotePoll(poll.id, optionIds) : undefined}
+                        isHost={false}
+                    />
+                ))}
+
+                {messages.length === 0 && (!polls || polls.length === 0) && (
                     <p className="text-sm text-[#737373] text-center py-8">No messages yet</p>
                 )}
                 {messages.map((msg) => (
@@ -360,6 +398,7 @@ export default function LiveSessionClient() {
     const [errorMessage, setErrorMessage] = useState("");
     const [showChat, setShowChat] = useState(false);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+    const [polls, setPolls] = useState<Poll[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [isHandRaised, setIsHandRaised] = useState(false);
     const [floatingEmojis, setFloatingEmojis] = useState<FloatingEmoji[]>([]);
@@ -795,6 +834,35 @@ export default function LiveSessionClient() {
                 return;
             }
 
+            // Handle poll creation
+            if (msg.type === "poll_created") {
+                try {
+                    const parsed = JSON.parse(msg.message);
+                    if (parsed.poll) {
+                        setPolls((prev) => [parsed.poll, ...prev]);
+                        toast.info(`${msg.senderName} created a poll`);
+                    }
+                } catch (error) {
+                    console.error("Failed to parse poll_created:", error);
+                }
+                return;
+            }
+
+            // Handle poll closure
+            if (msg.type === "poll_closed") {
+                try {
+                    const parsed = JSON.parse(msg.message);
+                    if (parsed.pollId) {
+                        setPolls((prev) =>
+                            prev.map((p) => (p.id === parsed.pollId ? { ...p, status: "CLOSED" as const } : p))
+                        );
+                    }
+                } catch (error) {
+                    console.error("Failed to parse poll_closed:", error);
+                }
+                return;
+            }
+
             // Camera request from teacher — handled in a separate effect
             if (msg.type === "request_video") return;
 
@@ -971,6 +1039,48 @@ export default function LiveSessionClient() {
         triggerEmoji(emoji, localPeer?.name || "You");
         setShowEmojiPicker(false);
     }, [actions, localPeer?.name, triggerEmoji]);
+
+    const handleVotePoll = useCallback(async (pollId: string, optionIds: string[]) => {
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/live-classes/${params.classId}/polls/${pollId}/vote`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ optionIds }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to vote");
+            }
+
+            const data = await response.json();
+            if (data.success && data.data.pollUpdate) {
+                // Update poll locally with new vote counts
+                setPolls((prev) =>
+                    prev.map((p) => {
+                        if (p.id === pollId) {
+                            return {
+                                ...p,
+                                hasVoted: true,
+                                myVotes: optionIds,
+                                totalVotes: data.data.pollUpdate.totalVotes,
+                                options: p.options.map((opt) => {
+                                    const updated = data.data.pollUpdate.options.find((o: { id: string }) => o.id === opt.id);
+                                    return updated ? { ...opt, ...updated } : opt;
+                                }),
+                            };
+                        }
+                        return p;
+                    })
+                );
+                toast.success("Vote recorded");
+            }
+        } catch (error) {
+            console.error("Failed to vote:", error);
+            toast.error("Failed to record vote");
+            throw error;
+        }
+    }, [params.classId]);
 
     const handleLeave = useCallback(async () => {
         queryClient.removeQueries({ queryKey: liveClassQueryKeys.token(params.classId) });
@@ -1182,7 +1292,9 @@ export default function LiveSessionClient() {
                             <div className="h-full min-h-0 overflow-hidden">
                                 <ChatPanel
                                     messages={chatMessages}
+                                    polls={polls}
                                     onSend={(text) => { handleSendChat(text); resetControlsTimer(); }}
+                                    onVotePoll={handleVotePoll}
                                     onClose={() => setShowChat(false)}
                                 />
                             </div>
@@ -1435,7 +1547,9 @@ export default function LiveSessionClient() {
                     <div className="absolute inset-0 z-40 min-h-0 overflow-hidden sm:inset-auto sm:bottom-0 sm:right-0 sm:top-0 sm:w-80">
                         <ChatPanel
                             messages={chatMessages}
+                            polls={polls}
                             onSend={handleSendChat}
+                            onVotePoll={handleVotePoll}
                             onClose={() => setShowChat(false)}
                         />
                     </div>
