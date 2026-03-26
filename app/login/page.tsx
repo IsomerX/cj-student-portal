@@ -72,7 +72,7 @@ export default function LoginPage() {
   const [fieldErrors, setFieldErrors] = React.useState<FieldErrors>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [otpError, setOtpError] = React.useState<string | null>(null);
-  const [otp, setOtp] = React.useState(["", "", "", "", "", "", "", ""]);
+  const [otp, setOtp] = React.useState(["", "", "", ""]);
   const [isOtpDialogOpen, setIsOtpDialogOpen] = React.useState(false);
 
   const [phone, setPhone] = React.useState("");
@@ -175,7 +175,7 @@ export default function LoginPage() {
         navigateToDashboard();
         return;
       }
-      setOtp(Array(8).fill(""));
+      setOtp(Array(4).fill(""));
       setOtpError(null);
     },
   });
@@ -213,7 +213,7 @@ export default function LoginPage() {
     } catch (error) {
       const authError = toAuthApiError(error);
       if (authError.status === 403 && authError.code === "EMAIL_VERIFICATION_REQUIRED") {
-        setOtp(Array(8).fill(""));
+        setOtp(Array(4).fill(""));
         setOtpError(null);
         setIsOtpDialogOpen(true);
       } else {
@@ -226,8 +226,8 @@ export default function LoginPage() {
     const otpValue = otp.join("");
     setOtpError(null);
 
-    if (otpValue.length !== 8) {
-      setOtpError("Please enter the full 8-digit OTP.");
+    if (otpValue.length !== 4) {
+      setOtpError("Please enter the full 4-digit OTP.");
       return;
     }
 
