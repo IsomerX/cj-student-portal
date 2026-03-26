@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
+import { Toaster } from "sonner";
 
 import { QueryProvider } from "@/providers/query-provider";
 import BottomNav from "@/components/bottom-nav";
@@ -55,6 +56,7 @@ export default function RootLayout({
           <ServiceWorkerRegistrar />
           <PushNotificationPrompt />
           <BottomNav />
+          <Toaster richColors position="top-center" />
         </QueryProvider>
       </body>
     </html>

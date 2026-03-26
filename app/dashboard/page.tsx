@@ -500,64 +500,6 @@ export default function DashboardPage() {
             </div>
           </section>
         </div>
-
-        {/* My Batches Section */}
-        {batchesQuery.data && batchesQuery.data.length > 0 && (
-          <section className="mt-6 rounded-[24px] border border-[#ece5c8] bg-white p-4 shadow-sm sm:p-6">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#737373]">
-                Enrolled
-              </p>
-              <h2 className="mt-1 text-xl font-extrabold text-[#212121]">My Batches</h2>
-            </div>
-
-            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {batchesQuery.data.map((batch) => (
-                <div
-                  key={batch.id}
-                  className="rounded-[20px] border border-[#ece5c8] bg-gradient-to-br from-white to-[#fafbf8] p-4 shadow-sm transition-all hover:shadow-md"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-[#283618] text-white">
-                      <GraduationCap className="h-6 w-6" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="truncate text-base font-bold text-[#212121]">
-                        {batch.name}
-                      </h3>
-                      {batch.subject && (
-                        <p className="mt-0.5 truncate text-xs text-[#737373]">
-                          {batch.subject.name}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {(batch.startDate || batch.endDate) && (
-                    <div className="mt-4 space-y-1.5 rounded-[12px] bg-white/60 px-3 py-2.5">
-                      {batch.startDate && (
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="font-semibold text-[#737373]">Starts:</span>
-                          <span className="font-bold text-[#212121]">
-                            {format(new Date(batch.startDate), "MMM d, yyyy")}
-                          </span>
-                        </div>
-                      )}
-                      {batch.endDate && (
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="font-semibold text-[#737373]">Ends:</span>
-                          <span className="font-bold text-[#212121]">
-                            {format(new Date(batch.endDate), "MMM d, yyyy")}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
       </div>
       </main>
     </>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { DollarSign, History, Loader2, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 import {
   usePendingFees,
   useFeeStatistics,
@@ -45,7 +46,7 @@ export default function FeesPage() {
     setEnrollmentsLoading(true);
     getMyCoachingEnrollments()
       .then(setCoachingEnrollments)
-      .catch(() => {/* silent */})
+      .catch(() => {/* silent */ })
       .finally(() => setEnrollmentsLoading(false));
   }, [studentId]);
 
@@ -71,6 +72,30 @@ export default function FeesPage() {
   const createPayment = useCreatePayment();
   const initiatePayment = useInitiatePayment();
   const verifyPayment = useVerifyPayment();
+
+  // Handle return from payment redirect
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentId = urlParams.get("razorpay_payment_id");
+    const feeId = urlParams.get("feeId");
+
+    if (paymentId && feeId) {
+      const verifyAndRefresh = async () => {
+        try {
+          toast.success("Payment successful! Verifying...");
+          await verifyPayment.mutateAsync(feeId);
+          await refetchFees();
+          // Clear URL parameters
+          window.history.replaceState({}, "", "/fees");
+        } catch (error) {
+          console.error("Verification error:", error);
+        }
+      };
+      verifyAndRefresh();
+    }
+  }, [studentId, verifyPayment, refetchFees]);
 
   // Show fee breakdown modal when "Pay Now" is clicked
   const handlePayment = (fee: FeeItem) => {
@@ -99,7 +124,8 @@ export default function FeesPage() {
       const { id: paymentOrderId } = paymentOrderResponse.paymentOrder;
 
       // Step 2: Initiate payment (get Razorpay redirect URL)
-      const returnUrl = `${window.location.origin}/fees?payment=success&feeId=${selectedFee.feeReminderId}`;
+      // Don't hardcode payment status - let Razorpay add its own status parameters
+      const returnUrl = `${window.location.origin}/fees?feeId=${selectedFee.feeReminderId}`;
 
       const initiateResponse = await initiatePayment.mutateAsync({
         feeReminderId: selectedFee.feeReminderId,
@@ -112,45 +138,8 @@ export default function FeesPage() {
         throw new Error("Failed to get payment URL");
       }
 
-      // Close modal before redirect
-      setShowBreakdownModal(false);
-
-      // Step 3: Open payment page in new tab
-      const paymentWindow = window.open(
-        initiateResponse.redirectUrl,
-        "_blank",
-        "width=800,height=600",
-      );
-
-      // Listen for payment completion
-      const handleMessage = async (event: MessageEvent) => {
-        if (event.data?.type === "payment-complete") {
-          // Verify payment
-          await verifyPayment.mutateAsync(selectedFee.feeReminderId);
-          await refetchFees();
-          setProcessingFeeId(null);
-          setSelectedFee(null);
-
-          // Close payment window if still open
-          if (paymentWindow && !paymentWindow.closed) {
-            paymentWindow.close();
-          }
-        }
-      };
-
-      window.addEventListener("message", handleMessage);
-
-      // Cleanup
-      const checkInterval = setInterval(() => {
-        if (paymentWindow && paymentWindow.closed) {
-          clearInterval(checkInterval);
-          window.removeEventListener("message", handleMessage);
-          setProcessingFeeId(null);
-          setSelectedFee(null);
-          // Refresh fees when window closes
-          refetchFees();
-        }
-      }, 1000);
+      // Step 3: Redirect to payment page (Direct window context is required for UPI Intent)
+      window.location.href = initiateResponse.redirectUrl;
     } catch (error) {
       console.error("Payment error:", error);
       alert(
@@ -171,19 +160,55 @@ export default function FeesPage() {
     }
   };
 
-  // Handle payment verification on return
+  // Handle payment verification on return from Razorpay
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const payment = params.get("payment");
     const feeId = params.get("feeId");
 
-    if (payment === "success" && feeId) {
-      // Verify and refresh
-      verifyPayment.mutate(feeId);
+    // Razorpay adds these parameters to the return URL
+    const razorpayStatus = params.get("razorpay_payment_link_status");
+    const razorpayPaymentId = params.get("razorpay_payment_id");
+
+    // Debug logging
+    console.log("Payment return params:", {
+      feeId,
+      razorpayStatus,
+      razorpayPaymentId,
+      allParams: Object.fromEntries(params.entries()),
+    });
+
+    if (feeId && (razorpayStatus || razorpayPaymentId)) {
+      console.log("Verifying payment for feeId:", feeId);
+
+      // Verify the payment status
+      verifyPayment.mutate(feeId, {
+        onSuccess: (data) => {
+          console.log("Verify payment success:", data);
+          if (razorpayStatus === "paid" || razorpayPaymentId) {
+            toast.success("Payment successful!", {
+              description: "Your fee payment has been processed successfully.",
+            });
+          } else {
+            toast.error("Payment failed", {
+              description: "Your payment could not be processed. Please try again.",
+            });
+          }
+          refetchFees();
+        },
+        onError: (error) => {
+          console.error("Verify payment error:", error);
+          toast.error("Verification failed", {
+            description: "Unable to verify payment status. Please check your transaction history.",
+          });
+        },
+      });
+
       // Clean up URL
       window.history.replaceState({}, "", "/fees");
+    } else {
+      console.log("No payment params found or incomplete params");
     }
-  }, []);
+  }, [verifyPayment, refetchFees]);
 
   const isLoading = feesLoading || statsLoading || transactionsLoading;
   const hasError = feesError || statsError || transactionsError;
@@ -292,7 +317,7 @@ export default function FeesPage() {
       {/* Content Area */}
       <div className="relative z-10 mx-auto mt-4 sm:mt-6 max-w-4xl px-3 sm:px-6 lg:px-8">
         {/* Coaching Enrollments Section */}
-        {(enrollmentsLoading || coachingEnrollments.length > 0) && (
+        {(enrollmentsLoading || coachingEnrollments.length > 0) ? (
           <section className="mb-6">
             <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-[#737373] mb-4 pl-1">My Coaching Enrollments</h2>
             {enrollmentsLoading ? (
@@ -301,44 +326,83 @@ export default function FeesPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {coachingEnrollments.map((enrollment) => (
-                  <div
-                    key={enrollment.id}
-                    className="flex items-start justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-gray-900 truncate">
-                        {enrollment.school?.name ?? 'Coaching Center'}
-                      </p>
-                      <p className="text-sm text-gray-500 mt-0.5">
-                        Batch: {enrollment.batch?.name ?? '—'} · {enrollment.billingFrequency.charAt(0) + enrollment.billingFrequency.slice(1).toLowerCase()}
-                      </p>
-                      {enrollment.nextBillingDate && (
-                        <p className="text-xs text-gray-400 mt-1">
-                          Next billing:{' '}
-                          {new Date(enrollment.nextBillingDate).toLocaleDateString('en-IN', {
-                            day: 'numeric', month: 'short', year: 'numeric',
-                          })}
-                        </p>
+                {coachingEnrollments.map((enrollment) => {
+                  // ABS-2362: Check if access is revoked
+                  const isAccessRevoked = !!enrollment.accessRevokedAt;
+                  const revokedDate = enrollment.accessRevokedAt
+                    ? new Date(enrollment.accessRevokedAt).toLocaleDateString('en-IN', {
+                        day: 'numeric', month: 'short', year: 'numeric',
+                      })
+                    : null;
+
+                  return (
+                    <div
+                      key={enrollment.id}
+                      className={`rounded-2xl border p-4 shadow-sm ${
+                        isAccessRevoked
+                          ? 'border-red-200 bg-red-50'
+                          : 'border-gray-200 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-gray-900 truncate">
+                            {enrollment.school?.name ?? 'Coaching Center'}
+                          </p>
+                          <p className="text-sm text-gray-500 mt-0.5">
+                            Batch: {enrollment.batch?.name ?? '—'} · {enrollment.billingFrequency.charAt(0) + enrollment.billingFrequency.slice(1).toLowerCase()}
+                          </p>
+                          {enrollment.nextBillingDate && !isAccessRevoked && (
+                            <p className="text-xs text-gray-400 mt-1">
+                              Next billing:{' '}
+                              {new Date(enrollment.nextBillingDate).toLocaleDateString('en-IN', {
+                                day: 'numeric', month: 'short', year: 'numeric',
+                              })}
+                            </p>
+                          )}
+                        </div>
+                        <span className={`shrink-0 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
+                          isAccessRevoked
+                            ? 'bg-red-600 text-white'
+                            : enrollment.accessStatus === 'ACTIVE'
+                              ? 'bg-green-100 text-green-700'
+                              : enrollment.accessStatus === 'SUSPENDED'
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {isAccessRevoked
+                            ? 'ACCESS REVOKED'
+                            : enrollment.accessStatus === 'ACTIVE'
+                              ? 'Active'
+                              : enrollment.accessStatus === 'SUSPENDED'
+                                ? 'Payment Pending'
+                                : 'Deactivated'}
+                        </span>
+                      </div>
+
+                      {/* ABS-2362: Show revocation warning if access is revoked */}
+                      {isAccessRevoked && (
+                        <div className="border-t border-red-200 pt-3">
+                          <div className="rounded-lg bg-red-100 px-3 py-2.5">
+                            <p className="text-sm font-semibold text-red-900 mb-1">
+                              ⚠️ Access to {enrollment.batch?.name ?? 'this batch'} has been suspended
+                            </p>
+                            <p className="text-xs text-red-700 mb-2">
+                              Your access was revoked on {revokedDate} due to non-payment. You cannot access batch content, live classes, or recordings until your outstanding dues are cleared.
+                            </p>
+                            <p className="text-xs font-medium text-red-800">
+                              💡 Pay your pending fees below to restore access immediately.
+                            </p>
+                          </div>
+                        </div>
                       )}
                     </div>
-                    <span className={`shrink-0 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
-                      enrollment.accessStatus === 'ACTIVE'
-                        ? 'bg-green-100 text-green-700'
-                        : enrollment.accessStatus === 'SUSPENDED'
-                        ? 'bg-amber-100 text-amber-700'
-                        : 'bg-gray-100 text-gray-500'
-                    }`}>
-                      {enrollment.accessStatus === 'ACTIVE' ? 'Active'
-                        : enrollment.accessStatus === 'SUSPENDED' ? 'Suspended'
-                        : 'Deactivated'}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
-        )}
+        ) : null}
 
         {/* Pending Fees */}
         <div className="mb-8">

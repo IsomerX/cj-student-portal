@@ -44,7 +44,7 @@ export function FeeCard({ fee, onPayment, isProcessing }: FeeCardProps) {
           <h3 className="truncate font-bold text-[#212121] text-base mb-1">
             {fee.title}
           </h3>
-          {fee.lateFee && fee.lateFee > 0 && (
+          {fee.lateFee > 0 && (
             <p className="text-xs text-[#dc2626] font-medium">
               Includes late fee: ₹{(fee.lateFee / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
             </p>
