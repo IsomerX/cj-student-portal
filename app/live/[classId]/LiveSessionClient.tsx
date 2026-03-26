@@ -36,7 +36,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { joinLiveClass, LiveClassesApiError } from "@/lib/api/live-classes";
+import { joinLiveClass, leaveLiveClass, LiveClassesApiError } from "@/lib/api/live-classes";
 import { useLiveClassTokenQuery } from "@/hooks/use-live-classes";
 import { liveClassQueryKeys } from "@/lib/query-keys";
 
@@ -208,11 +208,10 @@ function TilePinButton({
                 onClick();
             }}
             aria-label={label}
-            className={`absolute right-1.5 top-1.5 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border shadow-md backdrop-blur-sm transition-colors ${
-                isPinned
-                    ? "border-white/20 bg-[#c4a57b] text-white shadow-[0_10px_22px_rgba(196,165,123,0.35)]"
-                    : "border-[#f1ead6] bg-[#fff9ec]/95 text-[#414141] hover:bg-white"
-            }`}
+            className={`absolute right-1.5 top-1.5 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border shadow-md backdrop-blur-sm transition-colors ${isPinned
+                ? "border-white/20 bg-[#c4a57b] text-white shadow-[0_10px_22px_rgba(196,165,123,0.35)]"
+                : "border-[#f1ead6] bg-[#fff9ec]/95 text-[#414141] hover:bg-white"
+                }`}
         >
             <Pin className="h-3.5 w-3.5" />
         </button>
@@ -278,9 +277,8 @@ function ChatPanel({
                 <button
                     onClick={handleSend}
                     disabled={!text.trim()}
-                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
-                        text.trim() ? "bg-[#c4a57b] text-white" : "bg-[#e7e7e7] text-[#a8a8a8]"
-                    }`}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${text.trim() ? "bg-[#c4a57b] text-white" : "bg-[#e7e7e7] text-[#a8a8a8]"
+                        }`}
                 >
                     <Send className="w-4 h-4" />
                 </button>
@@ -480,18 +478,18 @@ export default function LiveSessionClient() {
                 setTimeout(() => {
                     router.push("/live");
                 }, 3000);
-            // Class ended normally
+                // Class ended normally
             } else if (isEnded) {
                 setErrorMessage(errMessage || "The live session has ended.");
                 setConnectionState("removed");
-            // Banned or suspended — show error, don't poll
+                // Banned or suspended — show error, don't poll
             } else if (errLower.includes("banned") || errLower.includes("suspended")) {
                 setErrorMessage(errMessage);
                 setConnectionState("error");
-            // Waiting room — keep polling (only for "not admitted", not "not invited")
+                // Waiting room — keep polling (only for "not admitted", not "not invited")
             } else if (is403 && errLower.includes("not admitted")) {
                 setConnectionState("waiting");
-            // Other 403 — show error
+                // Other 403 — show error
             } else if (is403) {
                 setErrorMessage(errMessage || "You don't have access to this class");
                 setConnectionState("error");
@@ -529,6 +527,7 @@ export default function LiveSessionClient() {
     // Cleanup on unmount
     useEffect(() => {
         return () => {
+            void leaveLiveClass(params.classId);
             actions.leave().catch(() => {
                 // Ignore teardown errors during navigation/reload
             });
@@ -842,8 +841,8 @@ export default function LiveSessionClient() {
             void enableCamera();
         } else if (!canPublishAudio && wasPublishing) {
             // Demoted to viewer — force disable mic + camera
-            void actions.setLocalAudioEnabled(false).catch(() => {});
-            void actions.setLocalVideoEnabled(false).catch(() => {});
+            void actions.setLocalAudioEnabled(false).catch(() => { });
+            void actions.setLocalVideoEnabled(false).catch(() => { });
         }
     }, [canPublishAudio, enableMicrophone, enableCamera, actions]);
 
@@ -923,6 +922,8 @@ export default function LiveSessionClient() {
     const handleLeave = useCallback(async () => {
         queryClient.removeQueries({ queryKey: liveClassQueryKeys.token(params.classId) });
         try {
+            // Record that the student left for attendance tracking
+            void leaveLiveClass(params.classId);
             await actions.leave();
         } catch (err) {
             console.warn("Failed to leave room:", err);
@@ -1138,17 +1139,14 @@ export default function LiveSessionClient() {
 
                 {/* Overlay controls — shown on tap, auto-hide after 4s */}
                 <div
-                    className={`absolute inset-0 pointer-events-none z-10 transition-opacity duration-300 ${
-                        showControls ? "opacity-100" : "opacity-0"
-                    }`}
+                    className={`absolute inset-0 pointer-events-none z-10 transition-opacity duration-300 ${showControls ? "opacity-100" : "opacity-0"
+                        }`}
                 >
                     {/* Top bar */}
                     <div
-                        className={`absolute top-0 left-0 flex items-center gap-3 px-4 py-3 bg-black/50 backdrop-blur-sm ${
-                            showChat ? "right-1/2" : "right-0"
-                        } ${
-                            showControls ? "pointer-events-auto" : ""
-                        }`}
+                        className={`absolute top-0 left-0 flex items-center gap-3 px-4 py-3 bg-black/50 backdrop-blur-sm ${showChat ? "right-1/2" : "right-0"
+                            } ${showControls ? "pointer-events-auto" : ""
+                            }`}
                         style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
                     >
                         <button
@@ -1166,9 +1164,8 @@ export default function LiveSessionClient() {
 
                     {/* On-stage banner in landscape */}
                     {currentRole === "viewer-on-stage" && (
-                        <div className={`absolute top-14 flex items-center gap-2 px-3 py-1.5 bg-[#f59e0b]/90 rounded-full pointer-events-auto ${
-                            showChat ? "left-1/4 -translate-x-1/2" : "left-1/2 -translate-x-1/2"
-                        }`}>
+                        <div className={`absolute top-14 flex items-center gap-2 px-3 py-1.5 bg-[#f59e0b]/90 rounded-full pointer-events-auto ${showChat ? "left-1/4 -translate-x-1/2" : "left-1/2 -translate-x-1/2"
+                            }`}>
                             <Mic className="w-3.5 h-3.5 text-white" />
                             <span className="text-xs font-semibold text-white">
                                 {isAudioEnabled ? "On stage" : "On stage - turn on mic"}
@@ -1178,9 +1175,8 @@ export default function LiveSessionClient() {
 
                     {showControls && hasParticipantStrip && (
                         <div
-                            className={`absolute bottom-28 z-20 pointer-events-auto ${
-                                showChat ? "left-3 right-[calc(50%+0.75rem)]" : "left-3 right-3"
-                            }`}
+                            className={`absolute bottom-28 z-20 pointer-events-auto ${showChat ? "left-3 right-[calc(50%+0.75rem)]" : "left-3 right-3"
+                                }`}
                         >
                             <div className="flex gap-2 overflow-x-auto rounded-2xl bg-black/40 p-2 backdrop-blur-sm scrollbar-none">
                                 {participantStripPeers.map((peer) => (
@@ -1203,11 +1199,9 @@ export default function LiveSessionClient() {
 
                     {/* Bottom controls */}
                     <div
-                        className={`absolute bottom-0 left-0 bg-black/50 backdrop-blur-sm ${
-                            showChat ? "right-1/2" : "right-0"
-                        } ${
-                            showControls ? "pointer-events-auto" : ""
-                        }`}
+                        className={`absolute bottom-0 left-0 bg-black/50 backdrop-blur-sm ${showChat ? "right-1/2" : "right-0"
+                            } ${showControls ? "pointer-events-auto" : ""
+                            }`}
                         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
                     >
                         {/* Emoji bar */}
@@ -1251,9 +1245,8 @@ export default function LiveSessionClient() {
                             {canPublishAudio && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleToggleMute(); resetControlsTimer(); }}
-                                    className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
-                                        isAudioEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white"
-                                    }`}
+                                    className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${isAudioEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white"
+                                        }`}
                                 >
                                     {isAudioEnabled ? <Mic className="w-4.5 h-4.5" /> : <MicOff className="w-4.5 h-4.5" />}
                                 </button>
@@ -1262,9 +1255,8 @@ export default function LiveSessionClient() {
                             {canPublishAudio && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleToggleCamera(); resetControlsTimer(); }}
-                                    className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
-                                        isVideoEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white"
-                                    }`}
+                                    className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${isVideoEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white"
+                                        }`}
                                 >
                                     {isVideoEnabled ? <Video className="w-4.5 h-4.5" /> : <VideoOff className="w-4.5 h-4.5" />}
                                 </button>
@@ -1273,9 +1265,8 @@ export default function LiveSessionClient() {
                             {!canPublishAudio && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleToggleHand(); resetControlsTimer(); }}
-                                    className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
-                                        isHandRaised ? "bg-[#f59e0b] text-white" : "bg-white/20 text-white"
-                                    }`}
+                                    className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${isHandRaised ? "bg-[#f59e0b] text-white" : "bg-white/20 text-white"
+                                        }`}
                                 >
                                     <Hand className="w-4.5 h-4.5" />
                                 </button>
@@ -1283,9 +1274,8 @@ export default function LiveSessionClient() {
 
                             <button
                                 onClick={(e) => { e.stopPropagation(); handleToggleChat(); resetControlsTimer(); }}
-                                className={`relative w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
-                                    showChat ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white"
-                                }`}
+                                className={`relative w-11 h-11 rounded-full flex items-center justify-center transition-colors ${showChat ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white"
+                                    }`}
                             >
                                 <MessageCircle className="w-4.5 h-4.5" />
                                 {unreadCount > 0 && !showChat && (
@@ -1306,18 +1296,16 @@ export default function LiveSessionClient() {
                 </div>
 
                 {!showControls && (
-                    <div className={`absolute bottom-4 z-20 flex items-center gap-3 pointer-events-auto ${
-                        showChat ? "left-1/4 -translate-x-1/2" : "left-1/2 -translate-x-1/2"
-                    }`}>
+                    <div className={`absolute bottom-4 z-20 flex items-center gap-3 pointer-events-auto ${showChat ? "left-1/4 -translate-x-1/2" : "left-1/2 -translate-x-1/2"
+                        }`}>
                         {canPublishAudio && (
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     void handleToggleMute();
                                 }}
-                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
-                                    isAudioEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white backdrop-blur-sm"
-                                }`}
+                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${isAudioEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white backdrop-blur-sm"
+                                    }`}
                             >
                                 {isAudioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
                             </button>
@@ -1328,9 +1316,8 @@ export default function LiveSessionClient() {
                                     e.stopPropagation();
                                     void handleToggleCamera();
                                 }}
-                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
-                                    isVideoEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white backdrop-blur-sm"
-                                }`}
+                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${isVideoEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white backdrop-blur-sm"
+                                    }`}
                             >
                                 {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
                             </button>
@@ -1462,9 +1449,8 @@ export default function LiveSessionClient() {
                 {canPublishAudio && (
                     <button
                         onClick={handleToggleMute}
-                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
-                            isAudioEnabled ? "bg-[#c4a57b] text-white" : "bg-[#e7e7e7] text-[#767676]"
-                        }`}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${isAudioEnabled ? "bg-[#c4a57b] text-white" : "bg-[#e7e7e7] text-[#767676]"
+                            }`}
                     >
                         {isAudioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
                     </button>
@@ -1473,9 +1459,8 @@ export default function LiveSessionClient() {
                 {canPublishAudio && (
                     <button
                         onClick={handleToggleCamera}
-                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
-                            isVideoEnabled ? "bg-[#c4a57b] text-white" : "bg-[#e7e7e7] text-[#767676]"
-                        }`}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${isVideoEnabled ? "bg-[#c4a57b] text-white" : "bg-[#e7e7e7] text-[#767676]"
+                            }`}
                     >
                         {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
                     </button>
@@ -1484,9 +1469,8 @@ export default function LiveSessionClient() {
                 {!canPublishAudio && (
                     <button
                         onClick={handleToggleHand}
-                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
-                            isHandRaised ? "bg-[#f59e0b] text-white" : "bg-[#e7e7e7] text-[#767676]"
-                        }`}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${isHandRaised ? "bg-[#f59e0b] text-white" : "bg-[#e7e7e7] text-[#767676]"
+                            }`}
                     >
                         <Hand className="w-5 h-5" />
                     </button>
@@ -1494,9 +1478,8 @@ export default function LiveSessionClient() {
 
                 <button
                     onClick={handleToggleChat}
-                    className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
-                        showChat ? "bg-[#c4a57b] text-white" : "bg-[#e7e7e7] text-[#767676]"
-                    }`}
+                    className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-colors ${showChat ? "bg-[#c4a57b] text-white" : "bg-[#e7e7e7] text-[#767676]"
+                        }`}
                 >
                     <MessageCircle className="w-5 h-5" />
                     {unreadCount > 0 && !showChat && (
