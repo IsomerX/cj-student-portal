@@ -46,7 +46,7 @@ export function EmailVerificationDialog({
     nextOtp[index] = value;
     onOtpChange(nextOtp);
 
-    if (value && index < 7) {
+    if (value && index < 3) {
       const nextInput = document.getElementById(`otp-${index + 1}`);
       nextInput?.focus();
     }
@@ -61,12 +61,12 @@ export function EmailVerificationDialog({
 
   const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
     event.preventDefault();
-    const pastedData = event.clipboardData.getData("text").slice(0, 8);
+    const pastedData = event.clipboardData.getData("text").slice(0, 4);
     const digits = pastedData.split("").filter((char) => /^\d$/.test(char));
 
     const nextOtp = [...otp];
     digits.forEach((digit, index) => {
-      if (index < 8) nextOtp[index] = digit;
+      if (index < 4) nextOtp[index] = digit;
     });
     onOtpChange(nextOtp);
   };
@@ -95,7 +95,7 @@ export function EmailVerificationDialog({
 
           <div className="space-y-6">
             <div>
-              <p className="mb-4 text-sm font-semibold text-[#414141]">Enter 8-digit OTP</p>
+              <p className="mb-4 text-sm font-semibold text-[#414141]">Enter 4-digit OTP</p>
               <div className="grid grid-cols-4 justify-center gap-2 sm:flex sm:justify-center" onPaste={handlePaste}>
                 {otp.map((digit, index) => (
                   <input
@@ -125,7 +125,7 @@ export function EmailVerificationDialog({
               className="w-full"
               size="lg"
               onClick={onSubmit}
-              disabled={isSubmitting || otpValue.length !== 8}
+              disabled={isSubmitting || otpValue.length !== 4}
             >
               {isSubmitting ? "Verifying..." : "Verify and continue"}
               {isSubmitting ? null : <ArrowRight className="h-4 w-4" />}
