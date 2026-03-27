@@ -41,6 +41,7 @@ import {
 import { joinLiveClass, leaveLiveClass, LiveClassesApiError } from "@/lib/api/live-classes";
 import { useLiveClassTokenQuery } from "@/hooks/use-live-classes";
 import { liveClassQueryKeys } from "@/lib/query-keys";
+import { apiClient } from "@/lib/api/config";
 import PollCard from "./PollCard";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -80,6 +81,12 @@ interface Poll {
     allowMultipleAnswers: boolean;
     isAnonymous: boolean;
     showResultsBeforeVote: boolean;
+    allowVoteChange?: boolean;
+    isRevealed?: boolean;
+    isQuiz?: boolean;
+    correctOptionIds?: string[];
+    showCorrectAnswers?: boolean;
+    userScore?: { correct: number; total: number; percentage: number };
     status: "ACTIVE" | "CLOSED" | "EXPIRED";
     createdBy: { id: string; name: string; profilePic?: string | null };
     createdAt: string;
@@ -840,7 +847,13 @@ export default function LiveSessionClient() {
                 try {
                     const parsed = JSON.parse(msg.message);
                     if (parsed.poll) {
-                        setPolls((prev) => [parsed.poll, ...prev]);
+                        setPolls((prev) => {
+                            // Check if poll already exists to prevent duplicates
+                            if (prev.some(p => p.id === parsed.poll.id)) {
+                                return prev;
+                            }
+                            return [parsed.poll, ...prev];
+                        });
                         toast.info(`${msg.senderName} created a poll`);
                     }
                 } catch (error) {
@@ -860,6 +873,48 @@ export default function LiveSessionClient() {
                     }
                 } catch (error) {
                     console.error("Failed to parse poll_closed:", error);
+                }
+                return;
+            }
+
+            // Handle poll vote updates
+            if (msg.type === "poll_voted") {
+                try {
+                    const parsed = JSON.parse(msg.message);
+                    if (parsed.pollId && parsed.pollUpdate) {
+                        setPolls((prev) =>
+                            prev.map((p) => {
+                                if (p.id === parsed.pollId) {
+                                    return {
+                                        ...p,
+                                        totalVotes: parsed.pollUpdate.totalVotes,
+                                        options: p.options.map((opt) => {
+                                            const updated = parsed.pollUpdate.options.find((o: { id: string }) => o.id === opt.id);
+                                            return updated ? { ...opt, ...updated } : opt;
+                                        }),
+                                    };
+                                }
+                                return p;
+                            })
+                        );
+                    }
+                } catch (error) {
+                    console.error("Failed to parse poll_voted:", error);
+                }
+                return;
+            }
+
+            // Handle poll reveal broadcasts
+            if (msg.type === "poll_revealed") {
+                try {
+                    const parsed = JSON.parse(msg.message);
+                    if (parsed.pollId && parsed.poll) {
+                        setPolls((prev) =>
+                            prev.map((p) => (p.id === parsed.pollId ? { ...p, isRevealed: true, options: parsed.poll.options } : p))
+                        );
+                    }
+                } catch (error) {
+                    console.error("Failed to parse poll_revealed:", error);
                 }
                 return;
             }
@@ -1043,19 +1098,14 @@ export default function LiveSessionClient() {
 
     const handleVotePoll = useCallback(async (pollId: string, optionIds: string[]) => {
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/live-classes/${params.classId}/polls/${pollId}/vote`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ optionIds }),
-            });
+            console.log('Voting on poll:', { pollId, optionIds, classId: params.classId });
 
-            if (!response.ok) {
-                throw new Error("Failed to vote");
-            }
+            const response = await apiClient.post(`/live-classes/${params.classId}/polls/${pollId}/vote`, { optionIds });
 
-            const data = await response.json();
-            if (data.success && data.data.pollUpdate) {
+            console.log('Vote response:', response.data);
+
+            const data = response.data;
+            if (data.pollUpdate) {
                 // Update poll locally with new vote counts
                 setPolls((prev) =>
                     prev.map((p) => {
@@ -1064,9 +1114,9 @@ export default function LiveSessionClient() {
                                 ...p,
                                 hasVoted: true,
                                 myVotes: optionIds,
-                                totalVotes: data.data.pollUpdate.totalVotes,
+                                totalVotes: data.pollUpdate.totalVotes,
                                 options: p.options.map((opt) => {
-                                    const updated = data.data.pollUpdate.options.find((o: { id: string }) => o.id === opt.id);
+                                    const updated = data.pollUpdate.options.find((o: { id: string }) => o.id === opt.id);
                                     return updated ? { ...opt, ...updated } : opt;
                                 }),
                             };
@@ -1074,6 +1124,16 @@ export default function LiveSessionClient() {
                         return p;
                     })
                 );
+
+                // Broadcast vote update to all participants
+                void actions.sendMessage(
+                    JSON.stringify({
+                        pollId,
+                        pollUpdate: data.pollUpdate,
+                    }),
+                    "poll_voted"
+                );
+
                 toast.success("Vote recorded");
             }
         } catch (error) {
