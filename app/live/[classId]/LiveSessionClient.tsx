@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams, useRouter, useParams } from "next/navigation";
 import {
     useVideoRoom,
@@ -25,6 +25,8 @@ import {
     MonitorUp,
     X,
     Send,
+    FileText,
+    Download,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -36,13 +38,23 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { joinLiveClass, LiveClassesApiError } from "@/lib/api/live-classes";
+import { joinLiveClass, leaveLiveClass, LiveClassesApiError } from "@/lib/api/live-classes";
 import { useLiveClassTokenQuery } from "@/hooks/use-live-classes";
 import { liveClassQueryKeys } from "@/lib/query-keys";
+import { apiClient } from "@/lib/api/config";
+import PollCard from "./PollCard";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type ConnectionState = "loading" | "waiting" | "joining" | "fetching-token" | "connecting" | "connected" | "disconnected" | "removed" | "error";
+
+interface ChatAttachment {
+    id: string;
+    name: string;
+    type: string;
+    size: number;
+    url: string;
+}
 
 interface ChatMessage {
     id: string;
@@ -50,6 +62,36 @@ interface ChatMessage {
     text: string;
     timestamp: Date;
     isLocal?: boolean;
+    attachments?: ChatAttachment[];
+}
+
+interface PollOption {
+    id: string;
+    text: string;
+    voteCount: number;
+    percentage?: number;
+    voters?: Array<{ id: string; name: string; profilePic?: string | null }>;
+}
+
+interface Poll {
+    id: string;
+    question: string;
+    options: PollOption[];
+    totalVotes: number;
+    allowMultipleAnswers: boolean;
+    isAnonymous: boolean;
+    showResultsBeforeVote: boolean;
+    allowVoteChange?: boolean;
+    isRevealed?: boolean;
+    isQuiz?: boolean;
+    correctOptionIds?: string[];
+    showCorrectAnswers?: boolean;
+    userScore?: { correct: number; total: number; percentage: number };
+    status: "ACTIVE" | "CLOSED" | "EXPIRED";
+    createdBy: { id: string; name: string; profilePic?: string | null };
+    createdAt: string;
+    hasVoted: boolean;
+    myVotes: string[];
 }
 
 interface FloatingEmoji {
@@ -208,11 +250,10 @@ function TilePinButton({
                 onClick();
             }}
             aria-label={label}
-            className={`absolute right-1.5 top-1.5 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border shadow-md backdrop-blur-sm transition-colors ${
-                isPinned
-                    ? "border-white/20 bg-[#c4a57b] text-white shadow-[0_10px_22px_rgba(196,165,123,0.35)]"
-                    : "border-[#f1ead6] bg-[#fff9ec]/95 text-[#414141] hover:bg-white"
-            }`}
+            className={`absolute right-1.5 top-1.5 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border shadow-md backdrop-blur-sm transition-colors ${isPinned
+                ? "border-white/20 bg-[#c4a57b] text-white shadow-[0_10px_22px_rgba(196,165,123,0.35)]"
+                : "border-[#f1ead6] bg-[#fff9ec]/95 text-[#414141] hover:bg-white"
+                }`}
         >
             <Pin className="h-3.5 w-3.5" />
         </button>
@@ -221,11 +262,15 @@ function TilePinButton({
 
 function ChatPanel({
     messages,
+    polls,
     onSend,
+    onVotePoll,
     onClose,
 }: {
     messages: ChatMessage[];
+    polls?: Poll[];
     onSend: (text: string) => void;
+    onVotePoll?: (pollId: string, optionIds: string[]) => Promise<void>;
     onClose: () => void;
 }) {
     const [text, setText] = useState("");
@@ -254,15 +299,52 @@ function ChatPanel({
                 ref={scrollRef}
                 className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-3 space-y-3 scrollbar-thin"
             >
-                {messages.length === 0 && (
+                {/* Polls */}
+                {polls && polls.map((poll) => (
+                    <div key={poll.id}>
+                        <PollCard
+                            poll={poll}
+                            onVote={onVotePoll ? (optionIds) => onVotePoll(poll.id, optionIds) : undefined}
+                            isHost={false}
+                        />
+                    </div>
+                ))}
+
+                {messages.length === 0 && (!polls || polls.length === 0) && (
                     <p className="text-sm text-[#737373] text-center py-8">No messages yet</p>
                 )}
                 {messages.map((msg) => (
-                    <div key={msg.id} className="min-w-0 overflow-hidden">
+                    <div key={msg.id} className="min-w-0 overflow-hidden space-y-1.5">
                         <span className="block truncate text-xs font-semibold text-[#c4a57b]">{msg.sender}</span>
-                        <p className="break-words whitespace-pre-wrap text-sm leading-relaxed text-[#414141]">
-                            {msg.text}
-                        </p>
+                        {msg.text && (
+                            <p className="break-words whitespace-pre-wrap text-sm leading-relaxed text-[#414141]">
+                                {msg.text}
+                            </p>
+                        )}
+                        {msg.attachments && msg.attachments.length > 0 && (
+                            <div className="space-y-1.5">
+                                {msg.attachments.map((attachment) => (
+                                    <a
+                                        key={attachment.id}
+                                        href={attachment.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#f5f0e5] hover:bg-[#ece5d5] transition-colors border border-[#e5dcc5]"
+                                    >
+                                        <FileText className="w-4 h-4 text-[#c4a57b] flex-shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-medium text-[#414141] truncate">
+                                                {attachment.name}
+                                            </p>
+                                            <p className="text-[10px] text-[#737373]">
+                                                {(attachment.size / 1024).toFixed(1)} KB
+                                            </p>
+                                        </div>
+                                        <Download className="w-3.5 h-3.5 text-[#737373] flex-shrink-0" />
+                                    </a>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 ))}
             </div>
@@ -278,9 +360,8 @@ function ChatPanel({
                 <button
                     onClick={handleSend}
                     disabled={!text.trim()}
-                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
-                        text.trim() ? "bg-[#c4a57b] text-white" : "bg-[#e7e7e7] text-[#a8a8a8]"
-                    }`}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${text.trim() ? "bg-[#c4a57b] text-white" : "bg-[#e7e7e7] text-[#a8a8a8]"
+                        }`}
                 >
                     <Send className="w-4 h-4" />
                 </button>
@@ -325,6 +406,7 @@ export default function LiveSessionClient() {
     const [errorMessage, setErrorMessage] = useState("");
     const [showChat, setShowChat] = useState(false);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+    const [polls, setPolls] = useState<Poll[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [isHandRaised, setIsHandRaised] = useState(false);
     const [floatingEmojis, setFloatingEmojis] = useState<FloatingEmoji[]>([]);
@@ -461,24 +543,37 @@ export default function LiveSessionClient() {
             const errMessage = liveClassError?.message || "";
             const errLower = errMessage.toLowerCase();
             const is403 = liveClassError?.status === 403 || errLower.includes("403");
+            const is410 = liveClassError?.status === 410;
+            const isRemoved =
+                is410 ||
+                errLower.includes("removed from this class") ||
+                errLower.includes("invitation was revoked");
             const isEnded =
-                liveClassError?.status === 410 ||
                 errLower.includes("class has ended") ||
                 errLower.includes("session has ended") ||
                 errLower.includes("was cancelled");
             hasJoinedRef.current = false;
 
-            if (isEnded) {
+            // Student was removed/rejected from the class
+            if (isRemoved) {
+                setErrorMessage(errMessage || "You have been removed from this class.");
+                setConnectionState("removed");
+                // Redirect to live classes page after 3 seconds
+                setTimeout(() => {
+                    router.push("/live");
+                }, 3000);
+                // Class ended normally
+            } else if (isEnded) {
                 setErrorMessage(errMessage || "The live session has ended.");
                 setConnectionState("removed");
-            // Banned or suspended — show error, don't poll
+                // Banned or suspended — show error, don't poll
             } else if (errLower.includes("banned") || errLower.includes("suspended")) {
                 setErrorMessage(errMessage);
                 setConnectionState("error");
-            // Waiting room — keep polling
-            } else if (is403 && (errLower.includes("not admitted") || errLower.includes("not invited"))) {
+                // Waiting room — keep polling (only for "not admitted", not "not invited")
+            } else if (is403 && errLower.includes("not admitted")) {
                 setConnectionState("waiting");
-            // Other 403 — show error
+                // Other 403 — show error
             } else if (is403) {
                 setErrorMessage(errMessage || "You don't have access to this class");
                 setConnectionState("error");
@@ -516,6 +611,7 @@ export default function LiveSessionClient() {
     // Cleanup on unmount
     useEffect(() => {
         return () => {
+            void leaveLiveClass(params.classId);
             actions.leave().catch(() => {
                 // Ignore teardown errors during navigation/reload
             });
@@ -746,15 +842,108 @@ export default function LiveSessionClient() {
                 return;
             }
 
+            // Handle poll creation
+            if (msg.type === "poll_created") {
+                try {
+                    const parsed = JSON.parse(msg.message);
+                    if (parsed.poll) {
+                        setPolls((prev) => {
+                            // Check if poll already exists to prevent duplicates
+                            if (prev.some(p => p.id === parsed.poll.id)) {
+                                return prev;
+                            }
+                            return [parsed.poll, ...prev];
+                        });
+                        toast.info(`${msg.senderName} created a poll`);
+                    }
+                } catch (error) {
+                    console.error("Failed to parse poll_created:", error);
+                }
+                return;
+            }
+
+            // Handle poll closure
+            if (msg.type === "poll_closed") {
+                try {
+                    const parsed = JSON.parse(msg.message);
+                    if (parsed.pollId) {
+                        setPolls((prev) =>
+                            prev.map((p) => (p.id === parsed.pollId ? { ...p, status: "CLOSED" as const } : p))
+                        );
+                    }
+                } catch (error) {
+                    console.error("Failed to parse poll_closed:", error);
+                }
+                return;
+            }
+
+            // Handle poll vote updates
+            if (msg.type === "poll_voted") {
+                try {
+                    const parsed = JSON.parse(msg.message);
+                    if (parsed.pollId && parsed.pollUpdate) {
+                        setPolls((prev) =>
+                            prev.map((p) => {
+                                if (p.id === parsed.pollId) {
+                                    return {
+                                        ...p,
+                                        totalVotes: parsed.pollUpdate.totalVotes,
+                                        options: p.options.map((opt) => {
+                                            const updated = parsed.pollUpdate.options.find((o: { id: string }) => o.id === opt.id);
+                                            return updated ? { ...opt, ...updated } : opt;
+                                        }),
+                                    };
+                                }
+                                return p;
+                            })
+                        );
+                    }
+                } catch (error) {
+                    console.error("Failed to parse poll_voted:", error);
+                }
+                return;
+            }
+
+            // Handle poll reveal broadcasts
+            if (msg.type === "poll_revealed") {
+                try {
+                    const parsed = JSON.parse(msg.message);
+                    if (parsed.pollId && parsed.poll) {
+                        setPolls((prev) =>
+                            prev.map((p) => (p.id === parsed.pollId ? { ...p, isRevealed: true, options: parsed.poll.options } : p))
+                        );
+                    }
+                } catch (error) {
+                    console.error("Failed to parse poll_revealed:", error);
+                }
+                return;
+            }
+
             // Camera request from teacher — handled in a separate effect
             if (msg.type === "request_video") return;
+
+            // Parse message - could be JSON with attachments or plain text
+            let text = msg.message || "";
+            let attachments: ChatAttachment[] | undefined;
+
+            if (msg.type === "chat") {
+                try {
+                    const parsed = JSON.parse(msg.message);
+                    text = parsed.text || "";
+                    attachments = parsed.attachments || undefined;
+                } catch {
+                    // Not JSON, use as plain text
+                    text = msg.message || "";
+                }
+            }
 
             const newMsg: ChatMessage = {
                 id: msg.id || Date.now().toString(),
                 sender: msg.senderName || "Unknown",
-                text: msg.message || "",
+                text,
                 timestamp: new Date(msg.time || Date.now()),
                 isLocal: false,
+                attachments,
             };
             setChatMessages((prev) => [...prev, newMsg]);
             if (!showChat) setUnreadCount((c) => c + 1);
@@ -829,8 +1018,8 @@ export default function LiveSessionClient() {
             void enableCamera();
         } else if (!canPublishAudio && wasPublishing) {
             // Demoted to viewer — force disable mic + camera
-            void actions.setLocalAudioEnabled(false).catch(() => {});
-            void actions.setLocalVideoEnabled(false).catch(() => {});
+            void actions.setLocalAudioEnabled(false).catch(() => { });
+            void actions.setLocalVideoEnabled(false).catch(() => { });
         }
     }, [canPublishAudio, enableMicrophone, enableCamera, actions]);
 
@@ -907,9 +1096,58 @@ export default function LiveSessionClient() {
         setShowEmojiPicker(false);
     }, [actions, localPeer?.name, triggerEmoji]);
 
+    const handleVotePoll = useCallback(async (pollId: string, optionIds: string[]) => {
+        try {
+            console.log('Voting on poll:', { pollId, optionIds, classId: params.classId });
+
+            const response = await apiClient.post(`/live-classes/${params.classId}/polls/${pollId}/vote`, { optionIds });
+
+            console.log('Vote response:', response.data);
+
+            const data = response.data;
+            if (data.pollUpdate) {
+                // Update poll locally with new vote counts
+                setPolls((prev) =>
+                    prev.map((p) => {
+                        if (p.id === pollId) {
+                            return {
+                                ...p,
+                                hasVoted: true,
+                                myVotes: optionIds,
+                                totalVotes: data.pollUpdate.totalVotes,
+                                options: p.options.map((opt) => {
+                                    const updated = data.pollUpdate.options.find((o: { id: string }) => o.id === opt.id);
+                                    return updated ? { ...opt, ...updated } : opt;
+                                }),
+                            };
+                        }
+                        return p;
+                    })
+                );
+
+                // Broadcast vote update to all participants
+                void actions.sendMessage(
+                    JSON.stringify({
+                        pollId,
+                        pollUpdate: data.pollUpdate,
+                    }),
+                    "poll_voted"
+                );
+
+                toast.success("Vote recorded");
+            }
+        } catch (error) {
+            console.error("Failed to vote:", error);
+            toast.error("Failed to record vote");
+            throw error;
+        }
+    }, [params.classId]);
+
     const handleLeave = useCallback(async () => {
         queryClient.removeQueries({ queryKey: liveClassQueryKeys.token(params.classId) });
         try {
+            // Record that the student left for attendance tracking
+            void leaveLiveClass(params.classId);
             await actions.leave();
         } catch (err) {
             console.warn("Failed to leave room:", err);
@@ -1115,7 +1353,9 @@ export default function LiveSessionClient() {
                             <div className="h-full min-h-0 overflow-hidden">
                                 <ChatPanel
                                     messages={chatMessages}
+                                    polls={polls}
                                     onSend={(text) => { handleSendChat(text); resetControlsTimer(); }}
+                                    onVotePoll={handleVotePoll}
                                     onClose={() => setShowChat(false)}
                                 />
                             </div>
@@ -1125,17 +1365,14 @@ export default function LiveSessionClient() {
 
                 {/* Overlay controls — shown on tap, auto-hide after 4s */}
                 <div
-                    className={`absolute inset-0 pointer-events-none z-10 transition-opacity duration-300 ${
-                        showControls ? "opacity-100" : "opacity-0"
-                    }`}
+                    className={`absolute inset-0 pointer-events-none z-10 transition-opacity duration-300 ${showControls ? "opacity-100" : "opacity-0"
+                        }`}
                 >
                     {/* Top bar */}
                     <div
-                        className={`absolute top-0 left-0 flex items-center gap-3 px-4 py-3 bg-black/50 backdrop-blur-sm ${
-                            showChat ? "right-1/2" : "right-0"
-                        } ${
-                            showControls ? "pointer-events-auto" : ""
-                        }`}
+                        className={`absolute top-0 left-0 flex items-center gap-3 px-4 py-3 bg-black/50 backdrop-blur-sm ${showChat ? "right-1/2" : "right-0"
+                            } ${showControls ? "pointer-events-auto" : ""
+                            }`}
                         style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
                     >
                         <button
@@ -1153,9 +1390,8 @@ export default function LiveSessionClient() {
 
                     {/* On-stage banner in landscape */}
                     {currentRole === "viewer-on-stage" && (
-                        <div className={`absolute top-14 flex items-center gap-2 px-3 py-1.5 bg-[#f59e0b]/90 rounded-full pointer-events-auto ${
-                            showChat ? "left-1/4 -translate-x-1/2" : "left-1/2 -translate-x-1/2"
-                        }`}>
+                        <div className={`absolute top-14 flex items-center gap-2 px-3 py-1.5 bg-[#f59e0b]/90 rounded-full pointer-events-auto ${showChat ? "left-1/4 -translate-x-1/2" : "left-1/2 -translate-x-1/2"
+                            }`}>
                             <Mic className="w-3.5 h-3.5 text-white" />
                             <span className="text-xs font-semibold text-white">
                                 {isAudioEnabled ? "On stage" : "On stage - turn on mic"}
@@ -1165,9 +1401,8 @@ export default function LiveSessionClient() {
 
                     {showControls && hasParticipantStrip && (
                         <div
-                            className={`absolute bottom-28 z-20 pointer-events-auto ${
-                                showChat ? "left-3 right-[calc(50%+0.75rem)]" : "left-3 right-3"
-                            }`}
+                            className={`absolute bottom-28 z-20 pointer-events-auto ${showChat ? "left-3 right-[calc(50%+0.75rem)]" : "left-3 right-3"
+                                }`}
                         >
                             <div className="flex gap-2 overflow-x-auto rounded-2xl bg-black/40 p-2 backdrop-blur-sm scrollbar-none">
                                 {participantStripPeers.map((peer) => (
@@ -1190,11 +1425,9 @@ export default function LiveSessionClient() {
 
                     {/* Bottom controls */}
                     <div
-                        className={`absolute bottom-0 left-0 bg-black/50 backdrop-blur-sm ${
-                            showChat ? "right-1/2" : "right-0"
-                        } ${
-                            showControls ? "pointer-events-auto" : ""
-                        }`}
+                        className={`absolute bottom-0 left-0 bg-black/50 backdrop-blur-sm ${showChat ? "right-1/2" : "right-0"
+                            } ${showControls ? "pointer-events-auto" : ""
+                            }`}
                         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
                     >
                         {/* Emoji bar */}
@@ -1238,9 +1471,8 @@ export default function LiveSessionClient() {
                             {canPublishAudio && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleToggleMute(); resetControlsTimer(); }}
-                                    className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
-                                        isAudioEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white"
-                                    }`}
+                                    className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${isAudioEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white"
+                                        }`}
                                 >
                                     {isAudioEnabled ? <Mic className="w-4.5 h-4.5" /> : <MicOff className="w-4.5 h-4.5" />}
                                 </button>
@@ -1249,9 +1481,8 @@ export default function LiveSessionClient() {
                             {canPublishAudio && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleToggleCamera(); resetControlsTimer(); }}
-                                    className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
-                                        isVideoEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white"
-                                    }`}
+                                    className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${isVideoEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white"
+                                        }`}
                                 >
                                     {isVideoEnabled ? <Video className="w-4.5 h-4.5" /> : <VideoOff className="w-4.5 h-4.5" />}
                                 </button>
@@ -1260,9 +1491,8 @@ export default function LiveSessionClient() {
                             {!canPublishAudio && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleToggleHand(); resetControlsTimer(); }}
-                                    className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
-                                        isHandRaised ? "bg-[#f59e0b] text-white" : "bg-white/20 text-white"
-                                    }`}
+                                    className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${isHandRaised ? "bg-[#f59e0b] text-white" : "bg-white/20 text-white"
+                                        }`}
                                 >
                                     <Hand className="w-4.5 h-4.5" />
                                 </button>
@@ -1270,9 +1500,8 @@ export default function LiveSessionClient() {
 
                             <button
                                 onClick={(e) => { e.stopPropagation(); handleToggleChat(); resetControlsTimer(); }}
-                                className={`relative w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
-                                    showChat ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white"
-                                }`}
+                                className={`relative w-11 h-11 rounded-full flex items-center justify-center transition-colors ${showChat ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white"
+                                    }`}
                             >
                                 <MessageCircle className="w-4.5 h-4.5" />
                                 {unreadCount > 0 && !showChat && (
@@ -1293,18 +1522,16 @@ export default function LiveSessionClient() {
                 </div>
 
                 {!showControls && (
-                    <div className={`absolute bottom-4 z-20 flex items-center gap-3 pointer-events-auto ${
-                        showChat ? "left-1/4 -translate-x-1/2" : "left-1/2 -translate-x-1/2"
-                    }`}>
+                    <div className={`absolute bottom-4 z-20 flex items-center gap-3 pointer-events-auto ${showChat ? "left-1/4 -translate-x-1/2" : "left-1/2 -translate-x-1/2"
+                        }`}>
                         {canPublishAudio && (
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     void handleToggleMute();
                                 }}
-                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
-                                    isAudioEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white backdrop-blur-sm"
-                                }`}
+                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${isAudioEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white backdrop-blur-sm"
+                                    }`}
                             >
                                 {isAudioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
                             </button>
@@ -1315,9 +1542,8 @@ export default function LiveSessionClient() {
                                     e.stopPropagation();
                                     void handleToggleCamera();
                                 }}
-                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
-                                    isVideoEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white backdrop-blur-sm"
-                                }`}
+                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${isVideoEnabled ? "bg-[#c4a57b] text-white" : "bg-white/20 text-white backdrop-blur-sm"
+                                    }`}
                             >
                                 {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
                             </button>
@@ -1382,7 +1608,9 @@ export default function LiveSessionClient() {
                     <div className="absolute inset-0 z-40 min-h-0 overflow-hidden sm:inset-auto sm:bottom-0 sm:right-0 sm:top-0 sm:w-80">
                         <ChatPanel
                             messages={chatMessages}
+                            polls={polls}
                             onSend={handleSendChat}
+                            onVotePoll={handleVotePoll}
                             onClose={() => setShowChat(false)}
                         />
                     </div>
@@ -1449,9 +1677,8 @@ export default function LiveSessionClient() {
                 {canPublishAudio && (
                     <button
                         onClick={handleToggleMute}
-                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
-                            isAudioEnabled ? "bg-[#c4a57b] text-white" : "bg-[#e7e7e7] text-[#767676]"
-                        }`}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${isAudioEnabled ? "bg-[#c4a57b] text-white" : "bg-[#e7e7e7] text-[#767676]"
+                            }`}
                     >
                         {isAudioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
                     </button>
@@ -1460,9 +1687,8 @@ export default function LiveSessionClient() {
                 {canPublishAudio && (
                     <button
                         onClick={handleToggleCamera}
-                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
-                            isVideoEnabled ? "bg-[#c4a57b] text-white" : "bg-[#e7e7e7] text-[#767676]"
-                        }`}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${isVideoEnabled ? "bg-[#c4a57b] text-white" : "bg-[#e7e7e7] text-[#767676]"
+                            }`}
                     >
                         {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
                     </button>
@@ -1471,9 +1697,8 @@ export default function LiveSessionClient() {
                 {!canPublishAudio && (
                     <button
                         onClick={handleToggleHand}
-                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
-                            isHandRaised ? "bg-[#f59e0b] text-white" : "bg-[#e7e7e7] text-[#767676]"
-                        }`}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${isHandRaised ? "bg-[#f59e0b] text-white" : "bg-[#e7e7e7] text-[#767676]"
+                            }`}
                     >
                         <Hand className="w-5 h-5" />
                     </button>
@@ -1481,9 +1706,8 @@ export default function LiveSessionClient() {
 
                 <button
                     onClick={handleToggleChat}
-                    className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
-                        showChat ? "bg-[#c4a57b] text-white" : "bg-[#e7e7e7] text-[#767676]"
-                    }`}
+                    className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-colors ${showChat ? "bg-[#c4a57b] text-white" : "bg-[#e7e7e7] text-[#767676]"
+                        }`}
                 >
                     <MessageCircle className="w-5 h-5" />
                     {unreadCount > 0 && !showChat && (

@@ -8,6 +8,7 @@ import {
   type VerifyEmailOtpPayload,
 } from "@/lib/auth/types";
 import { apiClient } from "@/lib/api/config";
+import { clearSession } from "@/lib/auth/storage";
 
 interface AuthResponseBody {
   token?: string;
@@ -165,10 +166,12 @@ export async function logout(): Promise<void> {
     await apiClient.post("/auth/logout");
   } catch (error) {
     if (isAxiosError(error) && error.response?.status === 401) {
-      return;
+      // already logged out
+    } else {
+      console.error("Logout API failed", error);
     }
-
-    throw toAuthApiError(error);
+  } finally {
+    clearSession();
   }
 }
 

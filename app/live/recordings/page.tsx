@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { ArrowLeft, Play, Video, Clock, HardDrive } from "lucide-react";
+import { ArrowLeft, Play, Video, Clock, HardDrive, Download } from "lucide-react";
 import { useMyBatchesQuery } from "@/hooks/use-assignments";
 import { useRecordingsQuery } from "@/hooks/use-live-classes";
 import { Recording } from "@/lib/api/live-classes";
+import { toast } from "sonner";
 
 function formatDuration(seconds?: number | null): string {
     if (seconds == null || seconds <= 0) return "--";
@@ -49,6 +50,26 @@ export default function RecordingsPage() {
                 recording.liveClass?.batch?.name || ""
             )}`
         );
+    };
+
+    const handleDownload = (e: React.MouseEvent, recording: Recording) => {
+        e.stopPropagation(); // Prevent card click
+
+        if (recording.status !== "READY" || !recording.url) {
+            toast.error("Recording not available for download");
+            return;
+        }
+
+        // Create temporary anchor and trigger download
+        const link = document.createElement("a");
+        link.href = recording.url;
+        link.download = `${recording.liveClass?.title || "Recording"} - ${formatDate(recording.liveClass?.startAt)}.mp4`;
+        link.target = "_blank";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        toast.success("Download started");
     };
 
     return (
@@ -127,15 +148,28 @@ export default function RecordingsPage() {
                                             {formatDate(item.liveClass?.startAt || item.createdAt)}
                                         </p>
 
-                                        <div className="flex items-center gap-4">
-                                            <div className="flex items-center gap-1.5 text-xs text-[#737373]">
-                                                <Clock className="h-3.5 w-3.5" />
-                                                <span>{formatDuration(item.duration)}</span>
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex items-center gap-1.5 text-xs text-[#737373]">
+                                                    <Clock className="h-3.5 w-3.5" />
+                                                    <span>{formatDuration(item.duration)}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 text-xs text-[#737373]">
+                                                    <HardDrive className="h-3.5 w-3.5" />
+                                                    <span>{formatSize(item.size)}</span>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center gap-1.5 text-xs text-[#737373]">
-                                                <HardDrive className="h-3.5 w-3.5" />
-                                                <span>{formatSize(item.size)}</span>
-                                            </div>
+
+                                            {/* Download button - only show if downloadEnabled */}
+                                            {item.downloadEnabled && isReady && (
+                                                <button
+                                                    onClick={(e) => handleDownload(e, item)}
+                                                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#283618]/10 text-[#283618] transition-colors hover:bg-[#283618]/20"
+                                                    aria-label="Download recording"
+                                                >
+                                                    <Download className="h-4 w-4" />
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </button>

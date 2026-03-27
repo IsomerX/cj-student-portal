@@ -119,10 +119,18 @@ export async function fetchLiveClassToken(classId: string): Promise<AuthTokenRes
 
 export async function joinLiveClass(classId: string): Promise<void> {
     try {
-        const response = await apiClient.post<any>(`/live-classes/${classId}/join`);
-
+        await apiClient.post(`/live-classes/${classId}/join`);
     } catch (error) {
         throw toLiveClassesApiError(error);
+    }
+}
+
+export async function leaveLiveClass(classId: string): Promise<void> {
+    try {
+        await apiClient.post(`/live-classes/${classId}/leave`);
+    } catch (error) {
+        // If they fail to record leave, it's not a critical error for the student
+        console.warn("Failed to record leave:", error);
     }
 }
 

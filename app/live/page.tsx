@@ -17,6 +17,7 @@ import { logout } from "@/lib/api/auth";
 import { useLiveClassesQuery } from "@/hooks/use-live-classes";
 import { LiveClass } from "@/lib/api/live-classes";
 import { cn } from "@/lib/utils";
+import { useLogoutMutation } from "@/hooks/use-auth";
 
 function formatClassDate(dateString: string): string {
     const date = new Date(dateString);
@@ -116,16 +117,11 @@ function LiveClassCard({
 export default function LiveClassesPage() {
     const router = useRouter();
     const { data: classes, isLoading } = useLiveClassesQuery();
+    const logoutMutation = useLogoutMutation();
 
-    const logoutMutation = useMutation({
-        mutationFn: logout,
-        onSuccess: () => {
-            router.push("/login");
-        },
-    });
-
-    const handleLogout = () => {
-        logoutMutation.mutate();
+    const handleLogout = async () => {
+        await logoutMutation.mutateAsync();
+        router.push("/login");
     };
 
     const handleClassPress = (liveClass: LiveClass) => {
@@ -138,6 +134,7 @@ export default function LiveClassesPage() {
     const scheduledClasses = classes?.filter((c) => c.status === "SCHEDULED") || [];
     const endedClasses =
         classes?.filter((c) => c.status === "ENDED" || c.status === "CANCELLED") || [];
+
 
     return (
         <>
