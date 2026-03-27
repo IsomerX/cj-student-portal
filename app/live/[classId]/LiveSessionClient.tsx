@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams, useRouter, useParams } from "next/navigation";
 import {
     useVideoRoom,
@@ -294,12 +294,13 @@ function ChatPanel({
             >
                 {/* Polls */}
                 {polls && polls.map((poll) => (
-                    <PollCard
-                        key={poll.id}
-                        poll={poll}
-                        onVote={onVotePoll ? (optionIds) => onVotePoll(poll.id, optionIds) : undefined}
-                        isHost={false}
-                    />
+                    <React.Fragment key={poll.id}>
+                        <PollCard
+                            poll={poll}
+                            onVote={onVotePoll ? (optionIds) => onVotePoll(poll.id, optionIds) : undefined}
+                            isHost={false}
+                        />
+                    </React.Fragment>
                 ))}
 
                 {messages.length === 0 && (!polls || polls.length === 0) && (
