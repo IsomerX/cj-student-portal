@@ -99,7 +99,7 @@ export default function PollCard({ poll, onVote, onClose, isHost = false }: Poll
         <div className="flex-1">
           <p className="font-medium text-gray-900">{poll.question}</p>
           <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-            <span>{poll.createdBy.name}</span>
+            <span>{poll.createdBy?.name || 'Unknown'}</span>
             <span>•</span>
             <span>{poll.totalVotes} {poll.totalVotes === 1 ? 'vote' : 'votes'}</span>
             {poll.status !== 'ACTIVE' && (
