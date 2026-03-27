@@ -293,15 +293,16 @@ function ChatPanel({
                 className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-3 space-y-3 scrollbar-thin"
             >
                 {/* Polls */}
-                {polls && polls.map((poll) => (
-                    <React.Fragment key={poll.id}>
+                {polls && polls.map((poll) => {
+                    return (
                         <PollCard
+                            key={poll.id}
                             poll={poll}
                             onVote={onVotePoll ? (optionIds) => onVotePoll(poll.id, optionIds) : undefined}
                             isHost={false}
                         />
-                    </React.Fragment>
-                ))}
+                    );
+                })}
 
                 {messages.length === 0 && (!polls || polls.length === 0) && (
                     <p className="text-sm text-[#737373] text-center py-8">No messages yet</p>

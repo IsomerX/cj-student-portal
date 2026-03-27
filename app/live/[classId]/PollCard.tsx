@@ -35,7 +35,8 @@ export interface PollCardProps {
 }
 
 export default function PollCard({ poll, onVote, onClose, isHost = false }: PollCardProps) {
-  const [selectedOptions, setSelectedOptions] = useState<string[]>(poll.myVotes || []);
+  const myVotes = poll.myVotes || [];
+  const [selectedOptions, setSelectedOptions] = useState<string[]>(myVotes);
   const [isVoting, setIsVoting] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
 
@@ -89,7 +90,7 @@ export default function PollCard({ poll, onVote, onClose, isHost = false }: Poll
 
   const canVote = poll.status === 'ACTIVE' && !isHost && onVote;
   const showResults = poll.hasVoted || poll.showResultsBeforeVote || poll.status !== 'ACTIVE';
-  const voteChanged = JSON.stringify(selectedOptions.sort()) !== JSON.stringify(poll.myVotes.sort());
+  const voteChanged = JSON.stringify([...selectedOptions].sort()) !== JSON.stringify([...myVotes].sort());
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
