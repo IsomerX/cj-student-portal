@@ -313,7 +313,7 @@ export default function LoginPage() {
 
   return (
     <>
-      <main className="relative flex min-h-[100dvh] items-start justify-center overflow-y-auto overflow-x-hidden bg-[#f0f2e8] px-5 pb-[max(2rem,calc(env(safe-area-inset-bottom)+1rem))] pt-[max(2.25rem,calc(env(safe-area-inset-top)+1.25rem))] selection:bg-[#283618]/20 sm:items-center sm:py-10">
+      <main className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-x-hidden bg-[#f0f2e8] px-5 py-[max(2rem,calc(env(safe-area-inset-top)+1.25rem))] selection:bg-[#283618]/20">
         <div
           className="absolute inset-0 pointer-events-none opacity-[0.04] -rotate-[15deg] scale-[1.3]"
           style={{

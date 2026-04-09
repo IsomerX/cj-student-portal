@@ -19,7 +19,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/fees", icon: Wallet, label: "Fees" },
 ];
 
-const HIDDEN_PATHS = ["/login", "/auth"];
+const HIDDEN_PATHS = ["/login", "/auth", "/day-pass"];
 
 function isHiddenPath(pathname: string): boolean {
   if (HIDDEN_PATHS.some((path) => pathname.startsWith(path))) {
