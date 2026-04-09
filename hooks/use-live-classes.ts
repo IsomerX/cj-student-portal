@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
     fetchMyLiveClasses,
     fetchLiveClassToken,
+    fetchDayPassVideoToken,
     fetchRecordingsByBatch,
     type Recording,
 } from "@/lib/api/live-classes";
@@ -37,6 +38,17 @@ export function useLiveClassTokenQuery(classId: string, enabled: boolean = true)
         gcTime: 0,
         staleTime: 0,
         // Handled manually by component for 403
+        retry: false,
+    });
+}
+
+export function useDayPassVideoTokenQuery(dayPassToken: string | null, enabled: boolean = true) {
+    return useQuery({
+        queryKey: ['day-pass-video-token', dayPassToken],
+        queryFn: () => fetchDayPassVideoToken(dayPassToken!),
+        enabled: Boolean(dayPassToken) && enabled,
+        gcTime: 0,
+        staleTime: 0,
         retry: false,
     });
 }

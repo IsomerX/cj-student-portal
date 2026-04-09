@@ -36,8 +36,8 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { joinLiveClass, LiveClassesApiError } from "@/lib/api/live-classes";
-import { useLiveClassTokenQuery } from "@/hooks/use-live-classes";
+import { joinLiveClass, leaveDayPassSession, LiveClassesApiError } from "@/lib/api/live-classes";
+import { useLiveClassTokenQuery, useDayPassVideoTokenQuery } from "@/hooks/use-live-classes";
 import { liveClassQueryKeys } from "@/lib/query-keys";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -300,6 +300,7 @@ export default function LiveSessionClient() {
     const params = useParams() as { classId: string };
     const searchParams = useSearchParams();
     const title = searchParams?.get("title") || "Live Class";
+    const dayPassToken = searchParams?.get("dayPassToken") ?? null;
 
     // Query client for cache invalidation
     const queryClient = useQueryClient();
@@ -326,6 +327,7 @@ export default function LiveSessionClient() {
     const [showChat, setShowChat] = useState(false);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [tokenSlug, setTokenSlug] = useState<string | null>(null);
     const [isHandRaised, setIsHandRaised] = useState(false);
     const [floatingEmojis, setFloatingEmojis] = useState<FloatingEmoji[]>([]);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -356,10 +358,17 @@ export default function LiveSessionClient() {
         connectionState !== "disconnected" &&
         connectionState !== "error";
 
-    const { data: tokenData, error, isError, isFetching, refetch: refetchToken } = useLiveClassTokenQuery(
+    const regularTokenQuery = useLiveClassTokenQuery(
         params?.classId,
-        shouldPollToken
+        shouldPollToken && !dayPassToken,
     );
+    const dayPassTokenQuery = useDayPassVideoTokenQuery(
+        dayPassToken,
+        shouldPollToken && !!dayPassToken,
+    );
+    const { data: tokenData, error, isError, isFetching, refetch: refetchToken } = dayPassToken
+        ? dayPassTokenQuery
+        : regularTokenQuery;
 
     // Determine current role
     const currentRole = localPeer?.roleName || "viewer";
@@ -441,13 +450,19 @@ export default function LiveSessionClient() {
 
                     await actions.join({
                         authToken: tokenData.token,
-                        userName: user.name || "Student",
+                        userName: searchParams?.get("name") || user.name || "Student",
                     });
 
-                    try {
-                        await joinLiveClass(params.classId);
-                    } catch (attendanceErr) {
-                        console.warn("Failed to record attendance:", attendanceErr);
+                    if (tokenData.tokenSlug) {
+                        setTokenSlug(tokenData.tokenSlug as string);
+                    }
+
+                    if (!dayPassToken) {
+                        try {
+                            await joinLiveClass(params.classId);
+                        } catch (attendanceErr) {
+                            console.warn("Failed to record attendance:", attendanceErr);
+                        }
                     }
                 } catch (err) {
                     console.error("Failed to join room:", err);
@@ -914,8 +929,16 @@ export default function LiveSessionClient() {
         } catch (err) {
             console.warn("Failed to leave room:", err);
         }
-        router.push("/live");
-    }, [actions, router, queryClient, params.classId]);
+
+        if (dayPassToken) {
+            // Signal a clean voluntary exit so the concurrent-session guard resets.
+            // Fire-and-forget — don't block navigation.
+            void leaveDayPassSession(dayPassToken);
+            router.push(`/day-pass?token=${tokenSlug || dayPassToken}`);
+        } else {
+            router.push("/live");
+        }
+    }, [actions, router, queryClient, params.classId, dayPassToken, tokenSlug]);
 
     const handleToggleChat = useCallback(() => {
         setShowChat((prev) => {
@@ -961,7 +984,13 @@ export default function LiveSessionClient() {
                     style={{ paddingTop: "max(1rem, calc(env(safe-area-inset-top) + 0.5rem))" }}
                 >
                     <button
-                        onClick={() => router.push("/live")}
+                        onClick={() => {
+                            if (dayPassToken) {
+                                router.push(`/day-pass?token=${tokenSlug || dayPassToken}`);
+                            } else {
+                                router.push("/live");
+                            }
+                        }}
                         className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#414141] shadow-sm ring-1 ring-[#e5e7eb] transition-colors hover:bg-[#f9fafb]"
                     >
                         <ArrowLeft className="h-5 w-5" />
@@ -1005,16 +1034,27 @@ export default function LiveSessionClient() {
                             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#f5f0dc] text-[#414141] ring-2 ring-[#ece5c8] mb-6">
                                 <PhoneOff className="h-8 w-8" />
                             </div>
-                            <h2 className="text-xl font-bold text-[#212121] mb-2">Session Ended</h2>
+                            <h2 className="text-xl font-bold text-[#212121] mb-2">{dayPassToken ? "Trial Class Finished" : "Session Ended"}</h2>
                             <p className="text-[#737373] font-medium mb-8 px-4">
-                                {errorMessage || "You have been disconnected from the session."}
+                                {dayPassToken 
+                                    ? "We hope you enjoyed the trial session! Contact the coaching center to enroll for full access." 
+                                    : (errorMessage || "You have been disconnected from the session.")}
                             </p>
-                            <button
-                                onClick={() => router.push("/live")}
-                                className="rounded-[12px] bg-[#414141] px-8 py-3 font-bold text-white transition-colors hover:bg-[#212121]"
-                            >
-                                Back to Classes
-                            </button>
+                            {dayPassToken ? (
+                                <button
+                                    onClick={() => router.push(`/day-pass?token=${tokenSlug || dayPassToken}`)}
+                                    className="rounded-[12px] bg-[#283618] px-8 py-3 font-bold text-white transition-colors hover:bg-[#1a2410]"
+                                >
+                                    Return to Home
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => router.push("/live")}
+                                    className="rounded-[12px] bg-[#414141] px-8 py-3 font-bold text-white transition-colors hover:bg-[#212121]"
+                                >
+                                    Back to Classes
+                                </button>
+                            )}
                         </div>
                     )}
 

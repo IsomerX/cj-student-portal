@@ -44,7 +44,8 @@ apiClient.interceptors.response.use(
     if (typeof window !== "undefined" && error.response?.status === 401) {
       const currentPath = window.location.pathname;
       const isAuthPage = currentPath === "/login";
-      if (!isAuthPage) {
+      const isDayPassParams = window.location.search.includes("dayPassToken");
+      if (!isAuthPage && !isDayPassParams) {
         localStorage.removeItem("token");
         localStorage.removeItem("access_token");
         window.location.href = "/login";

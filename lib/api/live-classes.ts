@@ -28,6 +28,7 @@ export interface AuthTokenResponse {
     token: string;
     role: string;
     roomId: string;
+    tokenSlug?: string;
 }
 
 export type RecordingStatus = "RECORDING" | "PROCESSING" | "READY" | "FAILED";
@@ -117,12 +118,38 @@ export async function fetchLiveClassToken(classId: string): Promise<AuthTokenRes
     }
 }
 
+export async function fetchDayPassVideoToken(dayPassToken: string): Promise<AuthTokenResponse> {
+    try {
+        const response = await apiClient.get<AuthTokenResponse>('/day-pass/video-token', {
+            headers: { Authorization: `Bearer ${dayPassToken}` },
+        });
+
+        if (!response.data) {
+            throw new LiveClassesApiError('Empty token data.');
+        }
+
+        return response.data;
+    } catch (error) {
+        throw toLiveClassesApiError(error);
+    }
+}
+
 export async function joinLiveClass(classId: string): Promise<void> {
     try {
         const response = await apiClient.post<any>(`/live-classes/${classId}/join`);
 
     } catch (error) {
         throw toLiveClassesApiError(error);
+    }
+}
+
+export async function leaveDayPassSession(dayPassToken: string): Promise<void> {
+    try {
+        await apiClient.post('/day-pass/leave', null, {
+            headers: { Authorization: `Bearer ${dayPassToken}` },
+        });
+    } catch {
+        // fire-and-forget — don't block the navigation if this fails
     }
 }
 
